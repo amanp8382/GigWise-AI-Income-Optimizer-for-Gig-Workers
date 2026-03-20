@@ -13,7 +13,7 @@ Current systems fail because:
 
 ---
 
-##  **2. Our Solution — TRUST-LOCK**
+##  **2. Our Solution — GigWise**
 
 **Gig-Wise** is an AI-powered parametric insurance platform designed specifically for **food delivery partners (Zomato/Swiggy)**.
 
