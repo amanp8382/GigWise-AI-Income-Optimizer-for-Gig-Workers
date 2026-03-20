@@ -114,7 +114,7 @@ A hybrid AI system combining:
 
 ##  **6. Parametric Trigger Model (Core Innovation)**
 
-Unlike traditional systems, TRUST-LOCK uses a **Triple-Layer Validation Model**:
+Unlike traditional systems, GigWise uses a **Triple-Layer Validation Model**:
 
 ### 1. Environmental Trigger
 
@@ -291,7 +291,7 @@ The system integrates with:
 
 ---
 
-##  **13. Why TRUST-LOCK Stands Out**
+##  **13. Why GigWise Stands Out**
 
 * Multi-layer validation instead of single-trigger systems
 * Advanced anti-spoofing architecture
