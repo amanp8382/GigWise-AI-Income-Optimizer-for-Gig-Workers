@@ -1,11 +1,11 @@
 const { clamp, safeNumber } = require('../ml/featureEngineering');
 
-const BASE_PREMIUM = 100;
-const MIN_PREMIUM = 50;
-const MAX_PREMIUM = 200;
+const BASE_PREMIUM = 20;
+const MIN_PREMIUM = 15;
+const MAX_PREMIUM = 60;
 
-const MIN_COVERAGE = 500;
-const MAX_COVERAGE = 20000;
+const MIN_COVERAGE = 1000;
+const MAX_COVERAGE = 1500;
 const INCIDENT_THRESHOLD = 5;
 
 function normalizeRange(value, min, max) {
@@ -184,16 +184,18 @@ function calculateTrustScore(driverData = {}) {
 function calculatePremium(driverData = {}) {
   const risk = calculateRisk(driverData);
   const trust = calculateTrustScore(driverData);
+  const riskFactorAmount = risk.totalRisk * 5;
+  const forecastRiskAmount = risk.forecastRisk * 10;
+  const trustDiscount = trust.trustScore * 5;
 
-  const rawPremium =
-    BASE_PREMIUM *
-    (1 + risk.totalRisk) *
-    (1 + risk.forecastRisk) *
-    (1 - trust.trustScore);
+  const rawPremium = BASE_PREMIUM + riskFactorAmount + forecastRiskAmount - trustDiscount;
   const premium = Math.round(clamp(rawPremium, MIN_PREMIUM, MAX_PREMIUM));
 
   return {
     basePremium: BASE_PREMIUM,
+    riskFactorAmount: Number(riskFactorAmount.toFixed(2)),
+    forecastRiskAmount: Number(forecastRiskAmount.toFixed(2)),
+    trustDiscount: Number(trustDiscount.toFixed(2)),
     rawPremium: Number(rawPremium.toFixed(2)),
     premium,
     totalRisk: Number(risk.totalRisk.toFixed(3)),
@@ -215,6 +217,18 @@ function calculateCoverage(driverData = {}) {
   const premiumDetails =
     driverData.premium === undefined ? calculatePremium(driverData) : driverData;
   const weeklyIncome = normalizeWeeklyIncome(driverData.weeklyIncome ?? driverData.income);
+  const activeHours = normalizeHours(driverData.activeHours ?? driverData.avgHours);
+  const deliveries = normalizeRange(
+    safeNumber(driverData.deliveries ?? driverData.ordersPerDay, 0),
+    0,
+    40
+  );
+  const weatherStress = clamp(
+    safeNumber(premiumDetails.forecastRisk, 0) * 0.65 +
+      safeNumber(premiumDetails.normalized?.weather, 0) * 0.35,
+    0,
+    1
+  );
   const trustScore =
     premiumDetails.trustScore !== undefined
       ? safeNumber(premiumDetails.trustScore, 0)
@@ -232,23 +246,22 @@ function calculateCoverage(driverData = {}) {
   // higher income, stronger trust, stronger forecast signal, and higher premium commitment
   // all expand the amount of income we are willing to protect.
   const premiumCommitment = clamp(premium / BASE_PREMIUM, 0.5, 2);
-  const forecastBoost = 1 + trustScore * 0.55 + premiumCommitment * 0.45 + safeNumber(premiumDetails.forecastRisk, 0) * 0.9;
-  const riskRetention = clamp(1.18 - totalRisk * 0.22, 0.35, 1.1);
-  const projectedCoverage = weeklyIncome * forecastBoost * riskRetention;
-
-  // Instead of a flat range, use income-aware dynamic bounds so higher-earning drivers
-  // can access meaningfully larger coverage while still keeping underwriting guardrails.
-  const dynamicFloor = Math.max(MIN_COVERAGE, Math.round(weeklyIncome * (0.16 + trustScore * 0.18)));
-  const dynamicCeiling = Math.max(
-    dynamicFloor,
-    Math.min(
-      MAX_COVERAGE,
-      Math.round(
-        weeklyIncome *
-          (1.45 + trustScore * 0.95 + safeNumber(premiumDetails.forecastRisk, 0) * 0.85 + premiumCommitment * 0.35)
-      )
-    )
+  const incomeStrength = normalizeRange(weeklyIncome, 2000, 9000);
+  const workloadStrength = clamp(activeHours * 0.48 + deliveries * 0.52, 0, 1);
+  const riskRetention = clamp(1.06 - totalRisk * 0.1, 0.76, 1.04);
+  const coverageScore = clamp(
+    incomeStrength * 0.24 +
+      workloadStrength * 0.34 +
+      weatherStress * 0.3 +
+      premiumCommitment * 0.06 +
+      trustScore * 0.06,
+    0,
+    1
   );
+  const projectedCoverage =
+    MIN_COVERAGE + (MAX_COVERAGE - MIN_COVERAGE) * coverageScore * riskRetention;
+  const dynamicFloor = MIN_COVERAGE;
+  const dynamicCeiling = MAX_COVERAGE;
   const coverage = Math.round(clamp(projectedCoverage, dynamicFloor, dynamicCeiling));
 
   return {
@@ -320,10 +333,10 @@ const driverData = {
 
 Example output shape:
 {
-  premium: 72,
-  coverage: 200,
-  totalRisk: 1.276,
+  premium: 27,
+  coverage: 1256,
+  totalRisk: 1.558,
   forecastRisk: 0.35,
-  trustScore: 0.892
+  trustScore: 0.884
 }
 */

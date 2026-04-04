@@ -6,15 +6,17 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import AppButton from '../components/ui/AppButton';
+import AppCard from '../components/ui/AppCard';
+import AppHeader from '../components/ui/AppHeader';
+import AppInput from '../components/ui/AppInput';
 import { colors } from '../constants/colors';
+import { radius, spacing } from '../constants/theme';
 import {
-  createClaim,
-  createPayout,
+  collectAutoClaim,
   fetchWeather,
   getDashboard,
   setupWalletKyc,
@@ -23,15 +25,14 @@ import {
 
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(0)}`;
 const getKycTone = (status) => {
-  if (status === 'VERIFIED') return { label: 'Verified', color: colors.success, bg: colors.primarySoft };
-  if (status === 'PENDING') return { label: 'Pending', color: colors.accent, bg: '#F8EBC7' };
-  return { label: 'Setup needed', color: colors.danger, bg: '#F7E3DC' };
+  if (status === 'VERIFIED') return { label: 'Verified', color: colors.success, bg: '#DCFCE7' };
+  if (status === 'PENDING') return { label: 'Pending', color: '#B45309', bg: '#FEF3C7' };
+  return { label: 'Setup needed', color: colors.danger, bg: '#FEE2E2' };
 };
 
 export default function DashboardScreen({ navigation, user }) {
   const [dashboard, setDashboard] = useState(null);
   const [weatherSummary, setWeatherSummary] = useState(null);
-  const [eventCity, setEventCity] = useState(user?.city || '');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [kycForm, setKycForm] = useState({
     legalName: '',
@@ -42,9 +43,9 @@ export default function DashboardScreen({ navigation, user }) {
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [simulating, setSimulating] = useState(false);
   const [kycLoading, setKycLoading] = useState(false);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [autoClaimLoading, setAutoClaimLoading] = useState(false);
   const [message, setMessage] = useState('');
 
   const getLiveWeather = useCallback(async () => {
@@ -131,30 +132,6 @@ export default function DashboardScreen({ navigation, user }) {
     }, [loadData])
   );
 
-  const handleSimulateRain = async () => {
-    if (!user?._id) return;
-
-    setSimulating(true);
-    setMessage('');
-
-    try {
-      const claimResponse = await createClaim(user._id, 'RAIN', eventCity.trim() || user.city);
-      const payoutResponse = await createPayout(
-        user._id,
-        claimResponse.claim._id,
-        'RAIN',
-        eventCity.trim() || user.city
-      );
-
-      setMessage(`Rain simulated. Claim approved and ${formatCurrency(payoutResponse.payout)} moved to wallet.`);
-      await loadData(true);
-    } catch (err) {
-      setMessage(err.message);
-    } finally {
-      setSimulating(false);
-    }
-  };
-
   const handleKycChange = (field, value) => {
     setKycForm((current) => ({ ...current, [field]: value }));
   };
@@ -200,6 +177,26 @@ export default function DashboardScreen({ navigation, user }) {
     }
   };
 
+  const handleCollectLiveClaim = async () => {
+    if (!user?._id) return;
+
+    setAutoClaimLoading(true);
+    setMessage('');
+
+    try {
+      const response = await collectAutoClaim({
+        userId: user._id,
+        city: weatherSummary?.city || user.city
+      });
+      setMessage(response.message);
+      await loadData(true);
+    } catch (err) {
+      setMessage(err.message);
+    } finally {
+      setAutoClaimLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
@@ -211,6 +208,7 @@ export default function DashboardScreen({ navigation, user }) {
   const claims = dashboard?.claims || [];
   const wallet = dashboard?.wallet || {};
   const monthlyInsurance = dashboard?.monthlyInsurance || {};
+  const autoClaim = dashboard?.autoClaim || {};
   const canWithdraw = wallet.isKycVerified && Number(wallet.balance || 0) > 0;
   const kycTone = getKycTone(wallet.kycStatus);
 
@@ -222,14 +220,13 @@ export default function DashboardScreen({ navigation, user }) {
           <RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor={colors.primary} />
         }
       >
-        <Text style={styles.eyebrow}>Operations</Text>
-        <Text style={styles.title}>Claims, monthly insurance, and wallet controls</Text>
-        <Text style={styles.subtitle}>
-          Weekly policy premiums are tracked monthly, approved payouts land in the wallet, and
-          withdrawals only go to the verified primary bank account.
-        </Text>
+        <AppHeader
+          eyebrow="Operations"
+          title="Claims, monthly insurance, and wallet controls"
+          subtitle="Weekly policy premiums are tracked monthly, approved payouts land in the wallet, and withdrawals only go to the verified primary bank account."
+        />
 
-        <View style={styles.weatherCard}>
+        <AppCard style={styles.weatherCard}>
           <Text style={styles.cardTitle}>Live risk snapshot</Text>
           <Text style={styles.weatherLine}>City: {weatherSummary?.city || 'Unavailable'}</Text>
           <Text style={styles.weatherLine}>Updated: {weatherSummary?.observedAt || 'Unavailable'}</Text>
@@ -238,22 +235,22 @@ export default function DashboardScreen({ navigation, user }) {
           <Text style={styles.weatherLine}>Wind now: {weatherSummary?.wind || 0} km/h</Text>
           <Text style={styles.weatherLine}>US AQI: {weatherSummary?.aqi || 0}</Text>
           <Text style={styles.weatherLine}>PM2.5: {weatherSummary?.pm25 || 0}</Text>
-        </View>
+        </AppCard>
 
         <View style={styles.metricsRow}>
-          <View style={styles.metricCard}>
+          <AppCard tone="soft" style={styles.metricCard}>
             <Text style={styles.metricLabel}>Wallet balance</Text>
             <Text style={styles.metricValue}>{formatCurrency(wallet.balance || 0)}</Text>
             <Text style={styles.metricMeta}>Ready to withdraw after bank-linked KYC</Text>
-          </View>
-          <View style={styles.metricCard}>
+          </AppCard>
+          <AppCard tone="soft" style={styles.metricCard}>
             <Text style={styles.metricLabel}>Weekly collected</Text>
             <Text style={styles.metricValue}>{formatCurrency(wallet.weeklyCollected || 0)}</Text>
             <Text style={styles.metricMeta}>Approved weekly payouts credited into wallet</Text>
-          </View>
+          </AppCard>
         </View>
 
-        <View style={styles.monthlyCard}>
+        <AppCard style={styles.monthlyCard}>
           <Text style={styles.cardTitle}>Monthly insurance tracker</Text>
           <Text style={styles.monthlyAmount}>{formatCurrency(monthlyInsurance.totalPremium || 0)}</Text>
           <Text style={styles.cardHint}>
@@ -274,11 +271,42 @@ export default function DashboardScreen({ navigation, user }) {
               </Text>
             </View>
           ))}
-        </View>
+        </AppCard>
 
-        <View style={styles.walletCard}>
+        <AppCard style={styles.monthlyCard}>
+          <Text style={styles.cardTitle}>Live rain claim status</Text>
+          <Text style={styles.cardHint}>
+            Rain claims are detected automatically from live worker-area weather. Higher work hours,
+            more orders, and harsher weather increase the claim amount.
+          </Text>
+          <Text style={styles.monthlyAmount}>{formatCurrency(autoClaim.suggestedAmount || 0)}</Text>
+          <Text style={styles.cardHint}>
+            {autoClaim.explanation ||
+              (weatherSummary?.rain > 0
+                ? 'Rain is present. The app is checking claim readiness.'
+                : 'No live rain detected right now.')}
+          </Text>
+          <Text style={styles.weatherLine}>
+            Status:{' '}
+            {autoClaim.canCollect
+              ? 'Ready to collect'
+              : autoClaim.requiresKyc && autoClaim.suggestedAmount
+              ? 'Complete KYC to collect'
+              : autoClaim.cooldownActive
+              ? 'Recent claim cooldown active'
+              : 'Waiting for rain trigger'}
+          </Text>
+          <AppButton
+            title="Collect Live Claim"
+            onPress={handleCollectLiveClaim}
+            loading={autoClaimLoading}
+            disabled={!autoClaim.canCollect}
+          />
+        </AppCard>
+
+        <AppCard tone="accent" style={styles.walletCard}>
           <View style={styles.walletHeader}>
-            <View>
+            <View style={styles.walletHeaderCopy}>
               <Text style={styles.cardTitle}>Wallet and bank transfer</Text>
               <Text style={styles.cardHint}>
                 Only the live wallet balance can be withdrawn, and every transfer goes to the
@@ -325,47 +353,40 @@ export default function DashboardScreen({ navigation, user }) {
                 Add identity and bank details once. After verification, the wallet stays linked to
                 this primary account for direct claims.
               </Text>
-              <TextInput
-                style={styles.input}
+              <AppInput
+                label="Legal name"
                 value={kycForm.legalName}
                 onChangeText={(value) => handleKycChange('legalName', value)}
                 placeholder="Legal name"
-                placeholderTextColor={colors.placeholder}
               />
-              <TextInput
-                style={styles.input}
+              <AppInput
+                label="Government ID number"
                 value={kycForm.idNumber}
                 onChangeText={(value) => handleKycChange('idNumber', value)}
                 placeholder="Government ID number"
-                placeholderTextColor={colors.placeholder}
               />
-              <TextInput
-                style={styles.input}
+              <AppInput
+                label="Phone number"
                 value={kycForm.phone}
                 onChangeText={(value) => handleKycChange('phone', value)}
                 placeholder="Phone number"
-                placeholderTextColor={colors.placeholder}
                 keyboardType="phone-pad"
               />
-              <TextInput
-                style={styles.input}
+              <AppInput
+                label="Primary bank account number"
                 value={kycForm.bankAccountNumber}
                 onChangeText={(value) => handleKycChange('bankAccountNumber', value)}
                 placeholder="Primary bank account number"
-                placeholderTextColor={colors.placeholder}
                 keyboardType="number-pad"
               />
-              <TextInput
-                style={styles.input}
+              <AppInput
+                label="IFSC code"
                 value={kycForm.ifscCode}
                 onChangeText={(value) => handleKycChange('ifscCode', value.toUpperCase())}
                 placeholder="IFSC code"
-                placeholderTextColor={colors.placeholder}
                 autoCapitalize="characters"
               />
-              <TouchableOpacity style={styles.primaryButton} onPress={handleCompleteKyc} disabled={kycLoading}>
-                {kycLoading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Verify KYC and link bank</Text>}
-              </TouchableOpacity>
+              <AppButton title="Verify KYC and link bank" onPress={handleCompleteKyc} loading={kycLoading} />
             </>
           ) : (
             <>
@@ -374,56 +395,45 @@ export default function DashboardScreen({ navigation, user }) {
                 You can transfer only the amount available in wallet balance. Claims remain ready
                 in the wallet until you need them.
               </Text>
-              <TextInput
-                style={styles.input}
+              <AppInput
+                label="Withdraw amount"
                 value={withdrawAmount}
                 onChangeText={setWithdrawAmount}
                 placeholder={`Available ${formatCurrency(wallet.balance || 0)}`}
-                placeholderTextColor={colors.placeholder}
                 keyboardType="numeric"
               />
-              <TouchableOpacity
-                style={[styles.primaryButton, !canWithdraw && styles.buttonDisabled]}
+              <AppButton
+                title="Transfer from wallet"
                 onPress={handleWithdraw}
-                disabled={!canWithdraw || withdrawLoading}
-              >
-                {withdrawLoading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Transfer from wallet</Text>}
-              </TouchableOpacity>
+                disabled={!canWithdraw}
+                loading={withdrawLoading}
+              />
             </>
           )}
-        </View>
+        </AppCard>
 
-        <View style={styles.simulationCard}>
-          <Text style={styles.cardTitle}>Simulate Rain</Text>
-          <Text style={styles.cardHint}>
-            Use the worker city for a valid payout, or another city to trigger fraud detection.
+        {message ? (
+          <Text
+            style={[
+              styles.message,
+              message.toLowerCase().includes('reject') || message.toLowerCase().includes('complete kyc')
+                ? styles.errorMessage
+                : null
+            ]}
+          >
+            {message}
           </Text>
-          <TextInput
-            style={styles.input}
-            value={eventCity}
-            onChangeText={setEventCity}
-            placeholder="Event city"
-            placeholderTextColor={colors.placeholder}
-          />
-          <TouchableOpacity style={styles.primaryButton} onPress={handleSimulateRain} disabled={simulating}>
-            {simulating ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Simulate Rain</Text>}
-          </TouchableOpacity>
-          {message ? (
-            <Text style={[styles.message, message.toLowerCase().includes('reject') ? styles.errorMessage : null]}>
-              {message}
-            </Text>
-          ) : null}
-        </View>
+        ) : null}
 
         <Text style={styles.sectionTitle}>Recent claims</Text>
         {claims.length === 0 ? (
-          <View style={styles.emptyState}>
+          <AppCard style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No claims yet</Text>
-            <Text style={styles.emptyText}>Use the rain simulation to generate a claim and payout record.</Text>
-          </View>
+            <Text style={styles.emptyText}>When rain is detected in the worker area, a live claim becomes available here.</Text>
+          </AppCard>
         ) : (
           claims.map((claim) => (
-            <View key={claim._id} style={styles.claimCard}>
+            <AppCard key={claim._id} style={styles.claimCard}>
               <View style={styles.claimTopRow}>
                 <Text style={styles.claimType}>{claim.triggerType}</Text>
                 <Text style={styles.claimAmount}>{formatCurrency(claim.payout)}</Text>
@@ -432,7 +442,7 @@ export default function DashboardScreen({ navigation, user }) {
               <Text style={styles.claimMeta}>{new Date(claim.createdAt).toLocaleString()}</Text>
               <Text style={styles.claimMeta}>Event city: {claim.eventCity || user?.city}</Text>
               {claim.reason ? <Text style={styles.claimReason}>{claim.reason}</Text> : null}
-            </View>
+            </AppCard>
           ))
         )}
       </ScrollView>
@@ -452,83 +462,56 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   container: {
-    padding: 20,
-    paddingBottom: 36
-  },
-  eyebrow: {
-    color: colors.primary,
-    fontWeight: '700',
-    fontSize: 13
-  },
-  title: {
-    color: colors.text,
-    fontSize: 30,
-    fontWeight: '800',
-    marginTop: 10
-  },
-  subtitle: {
-    color: colors.muted,
-    lineHeight: 22,
-    marginTop: 10,
-    marginBottom: 18
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl
   },
   weatherCard: {
-    backgroundColor: colors.card,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 14
+    marginBottom: spacing.md
   },
   monthlyCard: {
-    backgroundColor: colors.card,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 14
+    marginBottom: spacing.md
   },
   walletCard: {
-    backgroundColor: '#EEF4F1',
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 20
+    marginBottom: spacing.lg
   },
   walletHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: 12
+    gap: spacing.md
+  },
+  walletHeaderCopy: {
+    flex: 1
   },
   cardTitle: {
-    color: colors.text,
+    color: colors.textStrong,
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 10
+    marginBottom: spacing.sm
   },
   cardHint: {
     color: colors.muted,
     lineHeight: 20,
-    marginBottom: 12
+    marginBottom: spacing.md
   },
   weatherLine: {
     color: colors.textSoft,
-    marginBottom: 6
+    marginBottom: spacing.xs
   },
   walletLine: {
     color: colors.textSoft,
-    marginBottom: 6
+    marginBottom: spacing.xs
   },
   walletGrid: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 14
+    gap: spacing.md,
+    marginBottom: spacing.md
   },
   walletStatBox: {
     flex: 1,
     backgroundColor: colors.white,
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: radius.md,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border
   },
@@ -540,10 +523,10 @@ const styles = StyleSheet.create({
     color: colors.textStrong,
     fontSize: 22,
     fontWeight: '800',
-    marginTop: 8
+    marginTop: spacing.sm
   },
   statusChip: {
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 8
   },
@@ -553,28 +536,28 @@ const styles = StyleSheet.create({
   },
   bankPanel: {
     backgroundColor: colors.white,
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: radius.md,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: 12
+    marginBottom: spacing.md
   },
   bankTitle: {
     color: colors.text,
     fontWeight: '700',
-    marginBottom: 10
+    marginBottom: spacing.sm
   },
   monthlyAmount: {
     color: colors.textStrong,
     fontSize: 26,
     fontWeight: '800',
-    marginBottom: 8
+    marginBottom: spacing.sm
   },
   monthlyEntry: {
     backgroundColor: colors.bg,
-    borderRadius: 16,
-    padding: 12,
-    marginTop: 10
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm
   },
   monthlyEntryText: {
     color: colors.text,
@@ -586,14 +569,11 @@ const styles = StyleSheet.create({
   },
   metricsRow: {
     flexDirection: 'row',
-    marginBottom: 14,
-    gap: 12
+    marginBottom: spacing.md,
+    gap: spacing.md
   },
   metricCard: {
-    flex: 1,
-    backgroundColor: colors.primarySoft,
-    borderRadius: 22,
-    padding: 18
+    flex: 1
   },
   metricLabel: {
     color: colors.primary,
@@ -603,60 +583,28 @@ const styles = StyleSheet.create({
     color: colors.textStrong,
     fontSize: 24,
     fontWeight: '800',
-    marginTop: 8
+    marginTop: spacing.sm
   },
   metricMeta: {
     color: colors.muted,
-    marginTop: 8,
+    marginTop: spacing.sm,
     lineHeight: 18
-  },
-  simulationCard: {
-    backgroundColor: colors.card,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 20
   },
   sectionLabel: {
     color: colors.primary,
     fontWeight: '700',
-    marginTop: 10,
-    marginBottom: 10
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm
   },
   sectionHint: {
     color: colors.muted,
     lineHeight: 19,
-    marginBottom: 12
-  },
-  input: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    color: colors.textStrong,
-    marginBottom: 12
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 15,
-    alignItems: 'center'
-  },
-  primaryButtonText: {
-    color: colors.white,
-    fontWeight: '700',
-    fontSize: 15
-  },
-  buttonDisabled: {
-    opacity: 0.45
+    marginBottom: spacing.md
   },
   message: {
     color: colors.success,
     lineHeight: 20,
-    marginTop: 12
+    marginTop: spacing.sm
   },
   errorMessage: {
     color: colors.danger
@@ -665,14 +613,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 20,
     fontWeight: '700',
-    marginBottom: 12
+    marginBottom: spacing.md
   },
   emptyState: {
-    backgroundColor: colors.card,
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border
+    marginBottom: spacing.md
   },
   emptyTitle: {
     color: colors.text,
@@ -684,12 +628,7 @@ const styles = StyleSheet.create({
     lineHeight: 20
   },
   claimCard: {
-    backgroundColor: colors.card,
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 12
+    marginBottom: spacing.md
   },
   claimTopRow: {
     flexDirection: 'row',
@@ -708,16 +647,16 @@ const styles = StyleSheet.create({
   },
   claimStatus: {
     color: colors.success,
-    marginTop: 8,
+    marginTop: spacing.sm,
     fontWeight: '700'
   },
   claimMeta: {
     color: colors.muted,
-    marginTop: 6
+    marginTop: spacing.xs
   },
   claimReason: {
     color: colors.textSoft,
-    marginTop: 10,
+    marginTop: spacing.sm,
     lineHeight: 20
   }
 });

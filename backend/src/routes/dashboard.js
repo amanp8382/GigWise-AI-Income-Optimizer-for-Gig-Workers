@@ -1,11 +1,12 @@
 const router = require('express').Router();
 const {
   findActivePolicyByUserId,
+  countRecentClaims,
   findUserById,
   listClaimsByUserId,
   listPoliciesByUserId
 } = require('../store/dataStore');
-const { fetchWeather } = require('../services/weatherService');
+const { buildClaimOffer, CLAIM_TRIGGER_COOLDOWN_MS } = require('../services/claimOfferService');
 
 const startOfMonth = () => {
   const now = new Date();
@@ -32,9 +33,13 @@ router.get('/:userId', async (req, res) => {
       listPoliciesByUserId(userId, 24)
     ]);
 
-    const weatherData = await fetchWeather(user.city);
-    const currentRain = weatherData?.current?.rain || 0;
+    const claimOffer = policy ? await buildClaimOffer({ user, policy }) : null;
+    const currentRain = claimOffer?.currentRain || 0;
     const isRaining = currentRain > 0;
+    const recentClaimCount = await countRecentClaims(
+      userId,
+      new Date(Date.now() - CLAIM_TRIGGER_COOLDOWN_MS)
+    );
 
     const totalPayout = claims.reduce((sum, item) => sum + (item.payout || 0), 0);
     const lastPayout = claims.find((item) => item.status === 'APPROVED');
@@ -91,6 +96,17 @@ router.get('/:userId', async (req, res) => {
         legalName: user.kyc?.legalName || '',
         bankAccountMasked: maskBankAccount(user.kyc?.bankAccountNumber),
         lastWithdrawalAt: user.lastWithdrawalAt || null
+      },
+      autoClaim: {
+        eligible: Boolean(policy && isRaining && recentClaimCount === 0),
+        canCollect:
+          Boolean(policy && isRaining && recentClaimCount === 0) &&
+          user.kyc?.status === 'VERIFIED',
+        requiresKyc: user.kyc?.status !== 'VERIFIED',
+        suggestedAmount: claimOffer?.suggestedAmount || 0,
+        explanation: claimOffer?.explanation || '',
+        cooldownActive: recentClaimCount > 0,
+        city: claimOffer?.resolvedLocation?.city || user.city
       },
       weatherStatus: {
         city: user.city,

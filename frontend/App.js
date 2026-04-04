@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import WelcomeScreen from './src/screens/WelcomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import PolicyScreen from './src/screens/PolicyScreen';
@@ -16,7 +17,8 @@ export default function App() {
   return (
     <NavigationContainer>
       <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Login">
           {(props) => <LoginScreen {...props} setUser={setUser} />}
         </Stack.Screen>

@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import AppButton from '../components/ui/AppButton';
+import AppCard from '../components/ui/AppCard';
+import AppHeader from '../components/ui/AppHeader';
+import AppInput from '../components/ui/AppInput';
 import { colors } from '../constants/colors';
 import { LOCAL_API_IP } from '../constants/config';
+import { radius, shadows, spacing } from '../constants/theme';
 import { registerUser, setApiBaseOverride } from '../services/api';
 
 const citySuggestions = ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad'];
@@ -58,44 +61,50 @@ export default function LoginScreen({ navigation, setUser }) {
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.hero}>
-            <Text style={styles.eyebrow}>GigWise</Text>
-            <Text style={styles.title}>Insurance built for unpredictable gig income.</Text>
-            <Text style={styles.subtitle}>
-              Fast onboarding, weather-aware protection, and instant payout simulation.
-            </Text>
+            <View style={styles.heroGlow} />
+            <AppHeader
+              eyebrow="GigWise"
+              title="Insurance built for unpredictable gig income."
+              subtitle="Fast onboarding, weather-aware protection, and instant payout simulation."
+            />
+            <View style={styles.heroStats}>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatValue}>Rain</Text>
+                <Text style={styles.heroStatLabel}>Trigger-aware</Text>
+              </View>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatValue}>Wallet</Text>
+                <Text style={styles.heroStatLabel}>Payout-ready</Text>
+              </View>
+            </View>
           </View>
 
-          <View style={styles.card}>
+          <AppCard style={styles.card}>
             <Text style={styles.cardTitle}>Sign in to your workspace</Text>
             <Text style={styles.cardHint}>Enter your backend host before continuing.</Text>
 
-            <TextInput
+            <AppInput
+              label="Backend host"
               placeholder="API host, for example 192.168.1.10:4000"
-              placeholderTextColor={colors.placeholder}
-              style={styles.input}
               value={apiHost}
               onChangeText={setApiHost}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
+              helper="On a real phone, 10.0.2.2 and localhost will not work. Use your laptop's Wi-Fi IP."
             />
-            <Text style={styles.helperText}>
-              On a real phone, `10.0.2.2` and `localhost` will not work. Use your laptop&apos;s Wi-Fi IP.
-            </Text>
 
-            <TextInput
+            <AppInput
+              label="Full name"
               placeholder="Full name"
-              placeholderTextColor={colors.placeholder}
-              style={styles.input}
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
             />
 
-            <TextInput
+            <AppInput
+              label="City"
               placeholder="City"
-              placeholderTextColor={colors.placeholder}
-              style={styles.input}
               value={city}
               onChangeText={setCity}
               autoCapitalize="words"
@@ -111,10 +120,8 @@ export default function LoginScreen({ navigation, setUser }) {
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <TouchableOpacity style={styles.primaryButton} onPress={handleContinue} disabled={loading}>
-              {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Continue</Text>}
-            </TouchableOpacity>
-          </View>
+            <AppButton title="Continue" onPress={handleContinue} loading={loading} />
+          </AppCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -132,102 +139,84 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
+    padding: spacing.xl,
     justifyContent: 'center'
   },
   hero: {
-    marginBottom: 24
+    marginBottom: spacing.xl,
+    padding: spacing.xl,
+    borderRadius: radius.xl,
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+    ...shadows.card
   },
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1
+  heroGlow: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+    top: -50,
+    right: -40
   },
-  title: {
-    color: colors.text,
-    fontSize: 34,
-    fontWeight: '800',
-    lineHeight: 40,
-    marginTop: 10
+  heroStats: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.md
   },
-  subtitle: {
+  heroStat: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+  heroStatValue: {
+    color: colors.textStrong,
+    fontSize: 16,
+    fontWeight: '700'
+  },
+  heroStatLabel: {
     color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 12
+    fontSize: 12,
+    marginTop: spacing.xs
   },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 28,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 16 },
-    elevation: 8
+    padding: spacing.xl
   },
   cardTitle: {
-    color: colors.text,
+    color: colors.textStrong,
     fontSize: 20,
     fontWeight: '700'
   },
   cardHint: {
     color: colors.muted,
-    marginTop: 6,
-    marginBottom: 14
-  },
-  helperText: {
-    color: colors.muted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: -4,
-    marginBottom: 12
-  },
-  input: {
-    backgroundColor: colors.input,
-    color: colors.text,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg
   },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 10
+    marginBottom: spacing.sm
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
-    marginRight: 8,
-    marginBottom: 8
+    marginRight: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border
   },
   chipText: {
     color: colors.text,
     fontSize: 12,
     fontWeight: '600'
   },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 6
-  },
-  primaryButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '700'
-  },
   error: {
     color: colors.danger,
-    marginBottom: 10
+    marginBottom: spacing.md
   }
 });

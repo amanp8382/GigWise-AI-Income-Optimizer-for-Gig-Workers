@@ -31,7 +31,7 @@ mongoose
     console.log('GigWise API will continue with in-memory dev storage until MongoDB is available.');
   });
 
-const { createClaim, listActivePoliciesWithUsers, saveUser } = require('./src/store/dataStore');
+const { listActivePoliciesWithUsers } = require('./src/store/dataStore');
 
 // Services
 const { fetchWeather, fetchAQI } = require('./src/services/weatherService');
@@ -61,7 +61,7 @@ cron.schedule('0 * * * *', async () => {
       const aqi = await fetchAQI(user.city);
       const triggerType = evaluateTriggers(weather, aqi);
       if (triggerType) {
-        await createClaimAndPayout(user, triggerType);
+        console.log(`Eligible ${triggerType} event detected for ${user.name} in ${user.city}`);
       }
     }
   } catch (err) {
@@ -78,22 +78,6 @@ const evaluateTriggers = (weather, aqi) => {
   if (temp > 45) return 'HEAT';
   if (aqiValue > 300) return 'POLLUTION';
   return null;
-};
-
-const createClaimAndPayout = async (user, triggerType) => {
-  const payout = 200 + Math.floor(Math.random() * 301); // 200-500
-  await createClaim({
-    userId: user._id,
-    triggerType,
-    payout,
-    status: 'APPROVED',
-    eventCity: user.city,
-    reason: `${triggerType} auto payout credited`
-  });
-  user.earnings = (user.earnings || 0) + payout;
-  user.walletBalance = (user.walletBalance || 0) + payout;
-  await saveUser(user);
-  console.log(`Payout ${payout} processed for ${user.name} due to ${triggerType}`);
 };
 
 const server = app.listen(PORT, HOST, () =>

@@ -165,6 +165,32 @@ export const simulateTrigger = async (userId) => {
   }
 };
 
+export const checkAutoClaim = async (payload) => {
+  try {
+    const { data } = await requestWithFallback({
+      method: 'post',
+      url: '/trigger',
+      data: payload
+    });
+    return data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error, 'Could not check live claim status'));
+  }
+};
+
+export const collectAutoClaim = async (payload) => {
+  try {
+    const { data } = await requestWithFallback({
+      method: 'post',
+      url: '/trigger/collect',
+      data: payload
+    });
+    return data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error, 'Could not collect live claim'));
+  }
+};
+
 export const fetchWeather = async (location = {}) => {
   try {
     const params =

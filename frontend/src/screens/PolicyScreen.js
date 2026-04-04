@@ -5,11 +5,15 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import AppButton from '../components/ui/AppButton';
+import AppCard from '../components/ui/AppCard';
+import AppHeader from '../components/ui/AppHeader';
+import AppInput from '../components/ui/AppInput';
 import { colors } from '../constants/colors';
+import { radius, spacing } from '../constants/theme';
 import { createPolicy, fetchWeather, predictPremium } from '../services/api';
 
 const cityOptions = ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
@@ -155,11 +159,11 @@ export default function PolicyScreen({ navigation, user }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.eyebrow}>AI Pricing</Text>
-        <Text style={styles.title}>City-aware premium prediction.</Text>
-        <Text style={styles.subtitle}>
-          Premium now changes with live city weather, air quality, work intensity, and worker rating.
-        </Text>
+        <AppHeader
+          eyebrow="AI Pricing"
+          title="City-aware premium prediction."
+          subtitle="Premium now changes with live city weather, air quality, work intensity, and worker rating."
+        />
 
         <View style={styles.cityRow}>
           {cityOptions.map((city) => (
@@ -181,7 +185,7 @@ export default function PolicyScreen({ navigation, user }) {
           ))}
         </View>
 
-        <View style={styles.liveCard}>
+        <AppCard tone="soft" style={styles.liveCard}>
           <Text style={styles.cardTitle}>Live City Inputs</Text>
           {syncingCity ? <ActivityIndicator color={colors.primary} /> : null}
           <Text style={styles.liveLine}>City: {form.city}</Text>
@@ -190,37 +194,34 @@ export default function PolicyScreen({ navigation, user }) {
           <Text style={styles.liveLine}>US AQI: {toDisplayValue(liveSnapshot?.aqi, 0)}</Text>
           <Text style={styles.liveLine}>Wind: {toDisplayValue(liveSnapshot?.wind, 0)} km/h</Text>
           <Text style={styles.liveLine}>Updated: {liveSnapshot?.updatedAt || 'Unavailable'}</Text>
-        </View>
+        </AppCard>
 
-        <View style={styles.formCard}>
+        <AppCard style={styles.formCard}>
           <Text style={styles.cardTitle}>Work Inputs</Text>
-          <TextInput
-            style={styles.input}
+          <AppInput
+            label="Average working hours"
             value={form.avgHours}
             onChangeText={(value) => updateField('avgHours', value)}
             keyboardType="numeric"
             placeholder="Avg working hours/day"
-            placeholderTextColor={colors.placeholder}
           />
-          <TextInput
-            style={styles.input}
+          <AppInput
+            label="Deliveries per day"
             value={form.deliveries}
             onChangeText={(value) => updateField('deliveries', value)}
             keyboardType="numeric"
             placeholder="Deliveries/day"
-            placeholderTextColor={colors.placeholder}
           />
-          <TextInput
-            style={styles.input}
+          <AppInput
+            label="Worker rating"
             value={form.workerRating}
             onChangeText={(value) => updateField('workerRating', value)}
             keyboardType="numeric"
             placeholder="Worker rating"
-            placeholderTextColor={colors.placeholder}
           />
 
           <Text style={styles.sectionLabel}>Locked city metrics from weather API</Text>
-          <View style={styles.lockedInputCard}>
+          <AppCard tone="accent" style={styles.lockedInputCard}>
             <Text style={styles.lockedInputLine}>
               Rain now: {toDisplayValue(liveSnapshot?.rain, 1)} mm
             </Text>
@@ -233,15 +234,13 @@ export default function PolicyScreen({ navigation, user }) {
             <Text style={styles.lockedInputHint}>
               These values are fetched on the server during pricing and policy activation, so users cannot modify them.
             </Text>
-          </View>
+          </AppCard>
 
-          <TouchableOpacity style={styles.primaryButton} onPress={handlePredict} disabled={predicting || syncingCity}>
-            {predicting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Check My Premium</Text>}
-          </TouchableOpacity>
-        </View>
+          <AppButton title="Check My Premium" onPress={handlePredict} loading={predicting} disabled={syncingCity} />
+        </AppCard>
 
         {prediction ? (
-          <View style={styles.resultCard}>
+          <AppCard tone="soft" style={styles.resultCard}>
             <Text style={styles.resultEyebrow}>Prediction Ready</Text>
             <Text style={styles.resultPremium}>Weekly Premium: Rs {prediction.premium}</Text>
             <Text style={styles.resultLine}>Risk Level: {prediction.riskLevel}</Text>
@@ -252,39 +251,38 @@ export default function PolicyScreen({ navigation, user }) {
             <Text style={styles.resultHint}>City risk baseline: {prediction.normalized?.cityRisk}</Text>
 
             <View style={styles.breakdownRow}>
-              <View style={styles.breakdownCard}>
+              <AppCard style={styles.breakdownCard}>
                 <Text style={styles.breakdownLabel}>Weather</Text>
                 <Text style={styles.breakdownValue}>{prediction.weighted?.weatherRisk}</Text>
-              </View>
-              <View style={styles.breakdownCard}>
+              </AppCard>
+              <AppCard style={styles.breakdownCard}>
                 <Text style={styles.breakdownLabel}>Activity</Text>
                 <Text style={styles.breakdownValue}>{prediction.weighted?.activityRisk}</Text>
-              </View>
-              <View style={styles.breakdownCard}>
+              </AppCard>
+              <AppCard style={styles.breakdownCard}>
                 <Text style={styles.breakdownLabel}>Zone</Text>
                 <Text style={styles.breakdownValue}>{prediction.weighted?.zoneRisk}</Text>
-              </View>
+              </AppCard>
             </View>
-          </View>
+          </AppCard>
         ) : null}
 
-        <View style={styles.summaryCard}>
+        <AppCard tone="accent" style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>What changed</Text>
           <Text style={styles.summaryLine}>Changing city now refreshes live rain, AQI, and temperature.</Text>
           <Text style={styles.summaryLine}>Weather and AQI are locked to server-fetched API values during premium calculation.</Text>
           <Text style={styles.summaryLine}>Worker rating is included, so lower ratings raise risk slightly.</Text>
           <Text style={styles.summaryLine}>Prediction can compare cities, but policy activation still checks your real user city.</Text>
-        </View>
+        </AppCard>
 
         {message ? <Text style={styles.message}>{message}</Text> : null}
 
-        <TouchableOpacity
-          style={[styles.primaryButton, !prediction && styles.buttonDisabled]}
+        <AppButton
+          title="Activate Personalized Plan"
           onPress={handleActivate}
-          disabled={!prediction || activating}
-        >
-          {activating ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryButtonText}>Activate Personalized Plan</Text>}
-        </TouchableOpacity>
+          loading={activating}
+          disabled={!prediction}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -296,31 +294,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg
   },
   container: {
-    padding: 20,
-    paddingBottom: 32
-  },
-  eyebrow: {
-    color: colors.primary,
-    fontWeight: '700',
-    fontSize: 13
-  },
-  title: {
-    color: colors.text,
-    fontSize: 30,
-    fontWeight: '800',
-    lineHeight: 37,
-    marginTop: 10
-  },
-  subtitle: {
-    color: colors.muted,
-    lineHeight: 22,
-    marginTop: 10,
-    marginBottom: 16
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl
   },
   cityRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 12
+    marginBottom: spacing.sm
   },
   cityChip: {
     backgroundColor: colors.card,
@@ -328,9 +308,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 999,
-    marginRight: 8,
-    marginBottom: 8
+    borderRadius: radius.pill,
+    marginRight: spacing.sm,
+    marginBottom: spacing.sm
   },
   cityChipActive: {
     backgroundColor: colors.primary,
@@ -347,15 +327,17 @@ const styles = StyleSheet.create({
   samplesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 16
+    marginBottom: spacing.md
   },
   sampleChip: {
     backgroundColor: colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 999,
-    marginRight: 8,
-    marginBottom: 8
+    borderRadius: radius.pill,
+    marginRight: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border
   },
   sampleChipText: {
     color: colors.text,
@@ -363,85 +345,46 @@ const styles = StyleSheet.create({
     fontSize: 12
   },
   liveCard: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 14
+    marginBottom: spacing.md
   },
   formCard: {
-    backgroundColor: colors.card,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 14
+    marginBottom: spacing.md
   },
   cardTitle: {
-    color: colors.text,
+    color: colors.textStrong,
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 12
+    marginBottom: spacing.sm
   },
   liveLine: {
     color: colors.textSoft,
-    marginBottom: 6
+    marginBottom: spacing.xs
   },
   sectionLabel: {
     color: colors.primary,
     fontWeight: '700',
-    marginBottom: 8
-  },
-  input: {
-    backgroundColor: colors.input,
-    color: colors.text,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border
+    marginBottom: spacing.sm
   },
   lockedInputCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 12
+    marginBottom: spacing.md
   },
   lockedInputLine: {
     color: colors.textSoft,
-    marginBottom: 6
+    marginBottom: spacing.xs
   },
   lockedInputHint: {
     color: colors.muted,
     lineHeight: 20,
-    marginTop: 6
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 4
-  },
-  primaryButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '700'
-  },
-  buttonDisabled: {
-    opacity: 0.45
+    marginTop: spacing.xs
   },
   resultCard: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 14
+    marginBottom: spacing.md
   },
   resultEyebrow: {
     color: colors.primary,
     fontWeight: '700',
     fontSize: 12,
-    marginBottom: 8
+    marginBottom: spacing.sm
   },
   resultPremium: {
     color: colors.textStrong,
@@ -450,22 +393,21 @@ const styles = StyleSheet.create({
   },
   resultLine: {
     color: colors.textSoft,
-    marginTop: 8
+    marginTop: spacing.sm
   },
   resultHint: {
     color: colors.text,
     lineHeight: 20,
-    marginTop: 10
+    marginTop: spacing.sm
   },
   breakdownRow: {
     flexDirection: 'row',
-    marginTop: 14
+    marginTop: spacing.md,
+    gap: spacing.sm
   },
   breakdownCard: {
     flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 12
+    padding: spacing.md
   },
   breakdownLabel: {
     color: colors.muted,
@@ -474,27 +416,25 @@ const styles = StyleSheet.create({
   breakdownValue: {
     color: colors.text,
     fontWeight: '800',
-    marginTop: 6
+    marginTop: spacing.xs
   },
   summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 22,
-    padding: 18,
-    marginVertical: 8
+    marginVertical: spacing.sm
   },
   summaryTitle: {
     color: colors.text,
     fontWeight: '700',
-    marginBottom: 10
+    marginBottom: spacing.sm
   },
   summaryLine: {
     color: colors.muted,
     lineHeight: 20,
-    marginBottom: 6
+    marginBottom: spacing.xs
   },
   message: {
     color: colors.accent,
-    marginVertical: 12,
-    lineHeight: 20
+    marginVertical: spacing.md,
+    lineHeight: 20,
+    fontWeight: '600'
   }
 });

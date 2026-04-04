@@ -8,12 +8,6 @@ const {
   calculateCoverage: calculateDynamicCoverage
 } = require('./premiumCalculator');
 
-const LEGACY_MIN_COVERAGE = 1500;
-const LEGACY_MAX_COVERAGE = 4000;
-
-const clampLegacyCoverage = (value) =>
-  Math.min(LEGACY_MAX_COVERAGE, Math.max(LEGACY_MIN_COVERAGE, value));
-
 const riskLabelForScore = (riskScore) => {
   if (riskScore < 0.6) return 'Low';
   if (riskScore < 1.3) return 'Medium';
@@ -99,6 +93,12 @@ async function buildRiskInput(input = {}) {
   const city = input.city || 'Mumbai';
   const cityKey = city.toLowerCase();
   const cityProfile = cityProfiles[cityKey] || defaultCityProfile;
+  const incomeFactorWeekly =
+    input.incomeFactor !== undefined ? safeNumber(input.incomeFactor, 0) * 7 * 20 : null;
+  const derivedWeeklyIncome =
+    safeNumber(input.activeHours ?? input.avgHours, 8) *
+    safeNumber(input.deliveries ?? input.ordersPerDay, 18) *
+    30;
 
   const weather = await fetchWeather(city);
   const aqi = await fetchAQI(city);
@@ -125,7 +125,10 @@ async function buildRiskInput(input = {}) {
     deliveries: safeNumber(input.deliveries ?? input.ordersPerDay, 18),
     ordersPerDay: safeNumber(input.ordersPerDay ?? input.deliveries, 18),
     workerRating: safeNumber(input.workerRating ?? input.rating, 4.6),
-    weeklyIncome: safeNumber(input.weeklyIncome ?? input.income ?? input.incomeFactor * 7 * 20, 3500),
+    weeklyIncome: safeNumber(
+      input.weeklyIncome ?? input.income ?? incomeFactorWeekly ?? derivedWeeklyIncome,
+      3500
+    ),
     incomeFactor: safeNumber(input.incomeFactor, 10),
     incidents: Math.max(0, Math.round(safeNumber(input.incidents, 0))),
     consistencyScore: input.consistencyScore ?? input.consistency ?? 0.72,
@@ -184,16 +187,23 @@ function calculateCoverage(avgHoursOrDriverData, deliveries, riskScore, incomeFa
 
   const safeAvgHours = Math.max(0, safeNumber(avgHoursOrDriverData, 0));
   const safeDeliveries = Math.max(0, safeNumber(deliveries, 0));
+  const safeRiskScore = clamp(safeNumber(riskScore, 0), 0, 3);
   const safeIncomeFactor = Math.max(0, safeNumber(incomeFactor, 0));
-  const safeRiskScore = clamp(safeNumber(riskScore, 0), 0, 1);
+  const weeklyIncome = safeIncomeFactor > 0 ? safeIncomeFactor * 7 * 20 : safeAvgHours * safeDeliveries * 30;
 
-  const baseCoverage = safeAvgHours * safeDeliveries * safeIncomeFactor;
-  let riskAdjustedMultiplier = 1.0;
-
-  if (safeRiskScore <= 0.3) riskAdjustedMultiplier = 1.2;
-  else if (safeRiskScore > 0.7) riskAdjustedMultiplier = 0.8;
-
-  return clampLegacyCoverage(Math.round(baseCoverage * riskAdjustedMultiplier));
+  return calculateDynamicCoverage({
+    city: 'Mumbai',
+    activeHours: safeAvgHours,
+    deliveries: safeDeliveries,
+    weeklyIncome,
+    totalRisk: safeRiskScore,
+    premium: BASE_PREMIUM,
+    trustScore: 0.7,
+    forecastRisk: clamp(safeRiskScore / 3, 0, 1),
+    normalized: {
+      weather: clamp(safeRiskScore / 3, 0, 1)
+    }
+  }).coverage;
 }
 
 async function calculatePremium(userData = {}) {
@@ -233,9 +243,9 @@ async function calculatePremium(userData = {}) {
     ml: null,
     heuristicPremium: premiumDetails.premium,
     basePremium: BASE_PREMIUM,
-    riskMultiplier: Number((1 + premiumDetails.totalRisk).toFixed(3)),
-    adjustmentMultiplier: Number((1 - premiumDetails.trustScore).toFixed(3)),
-    forecastMultiplier: Number((1 + premiumDetails.forecastRisk).toFixed(3)),
+    riskFactorAmount: premiumDetails.riskFactorAmount,
+    forecastRiskAmount: premiumDetails.forecastRiskAmount,
+    trustDiscount: premiumDetails.trustDiscount,
     riskScore: Number(premiumDetails.totalRisk.toFixed(2)),
     forecastRisk: Number(premiumDetails.forecastRisk.toFixed(2)),
     trustScore: Number(premiumDetails.trustScore.toFixed(2)),
@@ -252,7 +262,7 @@ async function calculatePremium(userData = {}) {
       premiumDetails,
       coverageDetails
     }),
-    pricingFormula: 'Base x (1 + TotalRisk) x (1 + ForecastRisk) x (1 - TrustScore)',
+    pricingFormula: 'Weekly Premium = Base Price + Risk Factor + Forecast Risk - Trust Discount',
     coverageFormula: 'Dynamic income protection sized from income, premium commitment, trust score, forecast risk, and total risk',
     environmentalInputsLocked: true
   };

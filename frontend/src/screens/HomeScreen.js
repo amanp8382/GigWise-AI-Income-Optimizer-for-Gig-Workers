@@ -1,18 +1,28 @@
 import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import AppButton from '../components/ui/AppButton';
+import AppCard from '../components/ui/AppCard';
+import AppHeader from '../components/ui/AppHeader';
+import AppInput from '../components/ui/AppInput';
 import { colors } from '../constants/colors';
-import { fetchWeather, getDashboard, predictPremium } from '../services/api';
+import { radius, spacing } from '../constants/theme';
+import {
+  checkAutoClaim,
+  collectAutoClaim,
+  fetchWeather,
+  getDashboard,
+  predictPremium
+} from '../services/api';
 
 const DEFAULT_PREMIUM_INPUTS = {
   city: '',
@@ -38,6 +48,7 @@ export default function HomeScreen({ navigation, user, setUser }) {
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherSummary, setWeatherSummary] = useState(null);
   const [weatherMessage, setWeatherMessage] = useState('');
+  const [liveLocation, setLiveLocation] = useState(null);
   const [premiumInputs, setPremiumInputs] = useState({
     ...DEFAULT_PREMIUM_INPUTS,
     city: user?.city || ''
@@ -45,6 +56,9 @@ export default function HomeScreen({ navigation, user, setUser }) {
   const [premiumResult, setPremiumResult] = useState(null);
   const [premiumLoading, setPremiumLoading] = useState(false);
   const [premiumError, setPremiumError] = useState('');
+  const [autoClaim, setAutoClaim] = useState(null);
+  const [autoClaimVisible, setAutoClaimVisible] = useState(false);
+  const [collectingClaim, setCollectingClaim] = useState(false);
   const locationPromptedRef = useRef(false);
 
   const applyWeatherSummary = useCallback((weatherData, fallbackCity = '') => {
@@ -150,12 +164,18 @@ export default function HomeScreen({ navigation, user, setUser }) {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude
       });
+      setLiveLocation({
+        city: liveCity,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+      });
       applyWeatherSummary(weatherData, liveCity);
     } catch (err) {
       try {
         const fallbackCity = user?.city || premiumInputs.city;
         if (fallbackCity) {
           const weatherData = await fetchWeather({ city: fallbackCity });
+          setLiveLocation({ city: fallbackCity });
           applyWeatherSummary(weatherData, fallbackCity);
           setWeatherMessage('Using your saved city because live location was unavailable.');
           return;
@@ -207,6 +227,40 @@ export default function HomeScreen({ navigation, user, setUser }) {
     }, [loadHomeData])
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      const loadClaimStatus = async () => {
+        if (!user?._id) return;
+
+        try {
+          const result = await checkAutoClaim({
+            userId: user._id,
+            city: liveLocation?.city || weatherSummary?.city || user.city,
+            latitude: liveLocation?.latitude,
+            longitude: liveLocation?.longitude
+          });
+          if (!active) return;
+
+          setAutoClaim(result);
+          setAutoClaimVisible(Boolean(result?.eligible || (result?.suggestedAmount && result?.requiresKyc)));
+        } catch (_err) {
+          if (active) {
+            setAutoClaim(null);
+            setAutoClaimVisible(false);
+          }
+        }
+      };
+
+      loadClaimStatus();
+
+      return () => {
+        active = false;
+      };
+    }, [liveLocation?.city, liveLocation?.latitude, liveLocation?.longitude, user?._id, user?.city, weatherSummary?.city])
+  );
+
   const handlePremiumInputChange = (field, value) => {
     setPremiumInputs((prev) => ({ ...prev, [field]: value }));
   };
@@ -222,6 +276,34 @@ export default function HomeScreen({ navigation, user, setUser }) {
       setPremiumError(err.message);
     } finally {
       setPremiumLoading(false);
+    }
+  };
+
+  const handleCollectClaim = async () => {
+    if (!user?._id) return;
+
+    setCollectingClaim(true);
+    setPremiumError('');
+
+    try {
+      const response = await collectAutoClaim({
+        userId: user._id,
+        city: liveLocation?.city || weatherSummary?.city || user.city,
+        latitude: liveLocation?.latitude,
+        longitude: liveLocation?.longitude
+      });
+      setAutoClaimVisible(false);
+      setAutoClaim((current) => ({
+        ...(current || {}),
+        canCollect: false,
+        message: response.message,
+        wallet: response.wallet
+      }));
+      await loadHomeData(true, false);
+    } catch (err) {
+      setPremiumError(err.message);
+    } finally {
+      setCollectingClaim(false);
     }
   };
 
@@ -253,24 +335,25 @@ export default function HomeScreen({ navigation, user, setUser }) {
           />
         }
       >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.eyebrow}>Welcome back</Text>
-            <Text style={styles.title}>{user?.name}</Text>
-            <Text style={styles.subtitle}>{user?.city}</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.ghostButton}
-            onPress={() => {
-              setUser(null);
-              navigation.replace('Login');
-            }}
-          >
-            <Text style={styles.ghostButtonText}>Log out</Text>
-          </TouchableOpacity>
-        </View>
+        <AppHeader
+          eyebrow="Welcome back"
+          title={user?.name}
+          subtitle={user?.city}
+          right={
+            <AppButton
+              title="Log out"
+              variant="secondary"
+              onPress={() => {
+                setUser(null);
+                navigation.replace('Login');
+              }}
+              style={styles.logoutButton}
+              textStyle={styles.logoutButtonText}
+            />
+          }
+        />
 
-        <View style={styles.walletCard}>
+        <AppCard style={styles.walletCard}>
           <Text style={styles.sectionEyebrow}>Wallet</Text>
           <Text style={styles.walletAmount}>{formatCurrency(walletAmount)}</Text>
           <Text style={styles.walletMeta}>
@@ -289,9 +372,19 @@ export default function HomeScreen({ navigation, user, setUser }) {
               </Text>
             </View>
           </View>
-        </View>
+        </AppCard>
 
-        <View style={styles.statCardFull}>
+        {autoClaim?.suggestedAmount ? (
+          <AppCard tone="soft" style={styles.claimBanner}>
+            <Text style={styles.sectionEyebrow}>Live rain claim</Text>
+            <Text style={styles.claimBannerAmount}>{formatCurrency(autoClaim.suggestedAmount)}</Text>
+            <Text style={styles.claimBannerText}>
+              {autoClaim.message || 'Rain-based claim amount updates from live weather and workload.'}
+            </Text>
+          </AppCard>
+        ) : null}
+
+        <AppCard style={styles.statCardFull}>
           <Text style={styles.statLabel}>Monthly insurance tracker</Text>
           <Text style={styles.statValue}>
             {formatCurrency(monthlyInsurance?.totalPremium || 0)}
@@ -314,9 +407,9 @@ export default function HomeScreen({ navigation, user, setUser }) {
               </Text>
             </View>
           ))}
-        </View>
+        </AppCard>
 
-        <View style={styles.heroCard}>
+        <AppCard tone="soft" style={styles.heroCard}>
           <Text style={styles.heroLabel}>Income protection</Text>
           <Text style={styles.heroValue}>
             {activePolicy?.active ? 'Active this week' : 'No active policy'}
@@ -328,12 +421,12 @@ export default function HomeScreen({ navigation, user, setUser }) {
                 ).toLocaleDateString()}`
               : 'Buy a weekly plan to unlock automated weather payouts.'}
           </Text>
-        </View>
+        </AppCard>
 
-        <View style={styles.weatherCard}>
+        <AppCard style={styles.weatherCard}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.cardTitle}>Live weather and AQI</Text>
-            {weatherLoading ? <ActivityIndicator color={colors.primary} /> : null}
+            {weatherLoading ? <Text style={styles.loadingTag}>Syncing...</Text> : null}
           </View>
           {weatherSummary ? (
             <>
@@ -351,69 +444,65 @@ export default function HomeScreen({ navigation, user, setUser }) {
               {weatherMessage || 'Checking location permission for live weather...'}
             </Text>
           )}
-        </View>
+        </AppCard>
 
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
+          <AppCard style={styles.statCard}>
             <Text style={styles.statLabel}>Protected earnings</Text>
             <Text style={styles.statValue}>
               {formatCurrency(dashboard?.metrics?.totalEarnings || 0)}
             </Text>
-          </View>
-          <View style={styles.statCard}>
+          </AppCard>
+          <AppCard style={styles.statCard}>
             <Text style={styles.statLabel}>Claims</Text>
             <Text style={styles.statValue}>{claimsCount}</Text>
-          </View>
+          </AppCard>
         </View>
 
-        <View style={styles.statCardFull}>
+        <AppCard style={styles.statCardFull}>
           <Text style={styles.statLabel}>Total payouts processed</Text>
           <Text style={styles.statValue}>{formatCurrency(totalPayout)}</Text>
           <Text style={styles.statFoot}>
-            Recent claims and trigger simulation are available in Dashboard.
+            Live weather claims are available from Dashboard when rain is detected.
           </Text>
-        </View>
+        </AppCard>
 
-        <View style={styles.premiumCard}>
+        <AppCard style={styles.premiumCard}>
           <Text style={styles.sectionEyebrow}>Current Insurance Premium</Text>
           <Text style={styles.premiumValue}>{formatCurrency(currentPremiumValue)}</Text>
           <Text style={styles.premiumMeta}>
             Recalculate using your workload inputs. Weather and AQI are fetched automatically by the server and cannot be edited.
           </Text>
 
-          <TextInput
-            style={styles.input}
+          <AppInput
+            label="City"
             value={premiumInputs.city}
             onChangeText={(value) => handlePremiumInputChange('city', value)}
             placeholder="City"
-            placeholderTextColor={colors.placeholder}
           />
-          <TextInput
-            style={styles.input}
+          <AppInput
+            label="Average hours"
             value={premiumInputs.avgHours}
             onChangeText={(value) => handlePremiumInputChange('avgHours', value)}
             placeholder="Average hours"
-            placeholderTextColor={colors.placeholder}
             keyboardType="numeric"
           />
-          <TextInput
-            style={styles.input}
+          <AppInput
+            label="Deliveries"
             value={premiumInputs.deliveries}
             onChangeText={(value) => handlePremiumInputChange('deliveries', value)}
             placeholder="Deliveries"
-            placeholderTextColor={colors.placeholder}
             keyboardType="numeric"
           />
-          <TextInput
-            style={styles.input}
+          <AppInput
+            label="Worker rating"
             value={premiumInputs.workerRating}
             onChangeText={(value) => handlePremiumInputChange('workerRating', value)}
             placeholder="Worker rating"
-            placeholderTextColor={colors.placeholder}
             keyboardType="numeric"
           />
 
-          <View style={styles.lockedMetricsCard}>
+          <AppCard tone="accent" style={styles.lockedMetricsCard}>
             <Text style={styles.lockedMetricsTitle}>Locked live environment data</Text>
             <Text style={styles.lockedMetricsLine}>
               Rain now: {weatherSummary ? `${weatherSummary.rain} mm` : 'Loading'}
@@ -424,7 +513,7 @@ export default function HomeScreen({ navigation, user, setUser }) {
             <Text style={styles.lockedMetricsLine}>
               US AQI: {weatherSummary ? weatherSummary.aqi : 'Loading'}
             </Text>
-          </View>
+          </AppCard>
 
           {premiumResult?.coverage ? (
             <Text style={styles.premiumDetail}>Coverage: {formatCurrency(premiumResult.coverage)}</Text>
@@ -437,35 +526,50 @@ export default function HomeScreen({ navigation, user, setUser }) {
           ) : null}
           {premiumError ? <Text style={styles.error}>{premiumError}</Text> : null}
 
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={handleRecalculatePremium}
-            disabled={premiumLoading}
-          >
-            {premiumLoading ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <Text style={styles.primaryButtonText}>Recalculate Premium</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+          <AppButton title="Recalculate Premium" onPress={handleRecalculatePremium} loading={premiumLoading} />
+        </AppCard>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => navigation.navigate('Policy')}
-        >
-          <Text style={styles.primaryButtonText}>Choose Policy</Text>
-        </TouchableOpacity>
+        <AppButton title="Choose Policy" onPress={() => navigation.navigate('Policy')} />
 
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => navigation.navigate('Dashboard')}
-        >
-          <Text style={styles.secondaryButtonText}>Open Dashboard</Text>
-        </TouchableOpacity>
+        <AppButton title="Open Dashboard" variant="secondary" onPress={() => navigation.navigate('Dashboard')} />
       </ScrollView>
+
+      <Modal
+        visible={autoClaimVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAutoClaimVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <AppCard style={styles.modalCard}>
+            <Text style={styles.cardTitle}>Rain detected in your area</Text>
+            <Text style={styles.modalAmount}>{formatCurrency(autoClaim?.suggestedAmount || 0)}</Text>
+            <Text style={styles.modalText}>
+              {autoClaim?.message || 'Dynamic claim amount is ready from live weather.'}
+            </Text>
+            {autoClaim?.weather?.currentRain ? (
+              <Text style={styles.modalMeta}>
+                Live rain: {autoClaim.weather.currentRain} mm in {autoClaim.weather.city}
+              </Text>
+            ) : null}
+            {premiumError ? <Text style={styles.error}>{premiumError}</Text> : null}
+            {autoClaim?.canCollect ? (
+              <AppButton title="Collect to Wallet" onPress={handleCollectClaim} loading={collectingClaim} />
+            ) : (
+              <AppButton
+                title="Complete KYC to Collect"
+                onPress={() => {
+                  setAutoClaimVisible(false);
+                  navigation.navigate('Dashboard');
+                }}
+              />
+            )}
+            <AppButton title="Dismiss" variant="secondary" onPress={() => setAutoClaimVisible(false)} />
+          </AppCard>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -482,39 +586,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   container: {
-    padding: 20,
-    paddingBottom: 32
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 22
+  logoutButton: {
+    minHeight: 42,
+    paddingHorizontal: spacing.md
   },
-  eyebrow: {
-    color: colors.primary,
-    fontWeight: '700',
+  logoutButtonText: {
     fontSize: 13
-  },
-  title: {
-    color: colors.text,
-    fontSize: 30,
-    fontWeight: '800',
-    marginTop: 6
-  },
-  subtitle: {
-    color: colors.muted,
-    marginTop: 4
-  },
-  ghostButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: colors.surface
-  },
-  ghostButtonText: {
-    color: colors.text,
-    fontWeight: '600'
   },
   sectionEyebrow: {
     color: colors.primary,
@@ -523,11 +603,6 @@ const styles = StyleSheet.create({
     marginBottom: 8
   },
   walletCard: {
-    backgroundColor: colors.card,
-    borderRadius: 26,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: 16
   },
   walletAmount: {
@@ -540,6 +615,19 @@ const styles = StyleSheet.create({
     marginTop: 10,
     lineHeight: 20
   },
+  claimBanner: {
+    marginBottom: 16
+  },
+  claimBannerAmount: {
+    color: colors.textStrong,
+    fontSize: 26,
+    fontWeight: '800'
+  },
+  claimBannerText: {
+    color: colors.textSoft,
+    marginTop: 8,
+    lineHeight: 20
+  },
   walletStatsRow: {
     flexDirection: 'row',
     gap: 12,
@@ -548,8 +636,8 @@ const styles = StyleSheet.create({
   walletMiniCard: {
     flex: 1,
     backgroundColor: colors.bg,
-    borderRadius: 18,
-    padding: 14
+    borderRadius: radius.md,
+    padding: spacing.md
   },
   walletMiniLabel: {
     color: colors.muted,
@@ -562,9 +650,6 @@ const styles = StyleSheet.create({
     marginTop: 8
   },
   heroCard: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 28,
-    padding: 22,
     marginBottom: 16
   },
   heroLabel: {
@@ -584,12 +669,12 @@ const styles = StyleSheet.create({
     lineHeight: 20
   },
   weatherCard: {
-    backgroundColor: colors.card,
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: 14
+  },
+  loadingTag: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700'
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -616,19 +701,9 @@ const styles = StyleSheet.create({
     gap: 12
   },
   statCard: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border
+    flex: 1
   },
   statCardFull: {
-    backgroundColor: colors.card,
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: 18
   },
   statLabel: {
@@ -661,11 +736,6 @@ const styles = StyleSheet.create({
     marginTop: 4
   },
   premiumCard: {
-    backgroundColor: colors.card,
-    borderRadius: 26,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: 18
   },
   premiumValue: {
@@ -679,20 +749,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     lineHeight: 20
   },
-  input: {
-    backgroundColor: colors.input,
-    color: colors.text,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border
-  },
   lockedMetricsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 14,
     marginBottom: 12
   },
   lockedMetricsTitle: {
@@ -714,31 +771,32 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 20
   },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 12
-  },
-  primaryButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '700'
-  },
-  secondaryButton: {
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center'
-  },
-  secondaryButtonText: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '700'
-  },
   error: {
     color: colors.danger,
     marginBottom: 12
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.42)',
+    justifyContent: 'center',
+    padding: 24
+  },
+  modalCard: {
+    marginHorizontal: 0
+  },
+  modalAmount: {
+    color: colors.textStrong,
+    fontSize: 32,
+    fontWeight: '800',
+    marginBottom: 10
+  },
+  modalText: {
+    color: colors.textSoft,
+    lineHeight: 21,
+    marginBottom: 10
+  },
+  modalMeta: {
+    color: colors.muted,
+    marginBottom: 14
   }
 });
