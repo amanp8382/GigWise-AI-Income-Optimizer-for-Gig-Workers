@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "GigWise",
+    "slug": "gigwise",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "GigWise uses your location to show live weather and air quality for your current area."
+        }
+      ]
+    ],
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "GigWise uses your location to show live weather and air quality for your current area."
+      }
+    },
+    "android": {
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    }
+  }
+}

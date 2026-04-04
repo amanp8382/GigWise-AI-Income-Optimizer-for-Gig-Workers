@@ -1,0 +1,24 @@
+{
+  "name": "gigwise-frontend",
+  "version": "1.0.0",
+  "main": "node_modules/expo/AppEntry.js",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/start-expo.js",
+    "android": "node scripts/start-expo.js --android",
+    "ios": "node scripts/start-expo.js --ios",
+    "web": "node scripts/start-expo.js --web"
+  },
+  "dependencies": {
+    "@react-navigation/native": "^6.1.6",
+    "@react-navigation/native-stack": "^6.9.12",
+    "axios": "^1.6.0",
+    "cors": "^2.8.6",
+    "expo": "^54.0.33",
+    "expo-location": "~19.0.8",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-safe-area-context": "~5.6.2",
+    "react-native-screens": "~4.16.0"
+  }
+}
