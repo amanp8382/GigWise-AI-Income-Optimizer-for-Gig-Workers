@@ -1,0 +1,225 @@
+{
+  "version": 2,
+  "trainedAt": "2026-04-04T12:24:03.869Z",
+  "datasetSize": 24,
+  "seedDatasetSize": 24,
+  "augmentedDatasetSize": 0,
+  "modelType": "linear",
+  "featureNames": [
+    "rain_norm",
+    "aqi_norm",
+    "pm25_norm",
+    "pm10_norm",
+    "thermal_risk",
+    "avg_hours_norm",
+    "deliveries_norm",
+    "delivery_intensity_norm",
+    "rating_risk_norm",
+    "wind_norm",
+    "city_risk_norm",
+    "volatility_norm",
+    "storm_norm",
+    "daytime_exposure_norm",
+    "rain_risk_norm",
+    "pollution_risk_norm",
+    "fatigue_risk_norm",
+    "location_risk_norm",
+    "interaction_risk_norm",
+    "baseline_risk_norm",
+    "rain_x_delivery",
+    "pollution_x_hours",
+    "heat_x_hours",
+    "wind_x_rain",
+    "fatigue_x_rating",
+    "city_x_pollution",
+    "city_mumbai",
+    "city_delhi",
+    "city_bangalore",
+    "city_hyderabad",
+    "city_chennai",
+    "city_kolkata"
+  ],
+  "scaling": {
+    "rain_norm": {
+      "mean": 0.33875000000000005,
+      "std": 0.24216579203787916
+    },
+    "aqi_norm": {
+      "mean": 0.2977477477477477,
+      "std": 0.167259719154043
+    },
+    "pm25_norm": {
+      "mean": 0.22499999999999995,
+      "std": 0.1489026566364836
+    },
+    "pm10_norm": {
+      "mean": 0.2713541666666667,
+      "std": 0.1692264899182344
+    },
+    "thermal_risk": {
+      "mean": 0.37698412698412703,
+      "std": 0.21600573651201313
+    },
+    "avg_hours_norm": {
+      "mean": 0.6249999999999999,
+      "std": 0.1986741521506569
+    },
+    "deliveries_norm": {
+      "mean": 0.5508130081300813,
+      "std": 0.21516894139858356
+    },
+    "delivery_intensity_norm": {
+      "mean": 0.6554517242017243,
+      "std": 0.08791949385589183
+    },
+    "rating_risk_norm": {
+      "mean": 0.37083333333333335,
+      "std": 0.2050999079039828
+    },
+    "wind_norm": {
+      "mean": 0.3083333333333333,
+      "std": 0.10841343192714739
+    },
+    "city_risk_norm": {
+      "mean": 0.5966666666666666,
+      "std": 0.055210036661354836
+    },
+    "volatility_norm": {
+      "mean": 0.5583333333333335,
+      "std": 0.05785518319236595
+    },
+    "storm_norm": {
+      "mean": 0,
+      "std": 1
+    },
+    "daytime_exposure_norm": {
+      "mean": 1,
+      "std": 1
+    },
+    "rain_risk_norm": {
+      "mean": 0.27473333333333333,
+      "std": 0.18329000169737086
+    },
+    "pollution_risk_norm": {
+      "mean": 0.27117257882882884,
+      "std": 0.16192615583179198
+    },
+    "fatigue_risk_norm": {
+      "mean": 0.5786272248528346,
+      "std": 0.1768493336163716
+    },
+    "location_risk_norm": {
+      "mean": 0.5859333333333333,
+      "std": 0.0536002072964482
+    },
+    "interaction_risk_norm": {
+      "mean": 0.21420198712317953,
+      "std": 0.12205576303778237
+    },
+    "baseline_risk_norm": {
+      "mean": 0.40661817814403795,
+      "std": 0.10869364658761635
+    },
+    "rain_x_delivery": {
+      "mean": 0.23261216301060048,
+      "std": 0.18640744251650423
+    },
+    "pollution_x_hours": {
+      "mean": 0.19821867321867329,
+      "std": 0.14529245778412708
+    },
+    "heat_x_hours": {
+      "mean": 0.25234487734487737,
+      "std": 0.18550208349165764
+    },
+    "wind_x_rain": {
+      "mean": 0.12581250000000005,
+      "std": 0.1272061820841136
+    },
+    "fatigue_x_rating": {
+      "mean": 0.2704545454545455,
+      "std": 0.195516198873747
+    },
+    "city_x_pollution": {
+      "mean": 0.1847271021021021,
+      "std": 0.12162087193849601
+    },
+    "city_mumbai": {
+      "mean": 0.16666666666666666,
+      "std": 0.37267799624996484
+    },
+    "city_delhi": {
+      "mean": 0.16666666666666666,
+      "std": 0.3726779962499649
+    },
+    "city_bangalore": {
+      "mean": 0.16666666666666666,
+      "std": 0.3726779962499649
+    },
+    "city_hyderabad": {
+      "mean": 0.16666666666666666,
+      "std": 0.3726779962499649
+    },
+    "city_chennai": {
+      "mean": 0.16666666666666666,
+      "std": 0.3726779962499649
+    },
+    "city_kolkata": {
+      "mean": 0.16666666666666666,
+      "std": 0.3726779962499649
+    }
+  },
+  "metrics": {
+    "train": {
+      "mae": 0.687,
+      "rmse": 0.83,
+      "r2": 0.997
+    },
+    "test": {
+      "mae": 1.708,
+      "rmse": 2.107,
+      "r2": 0.957
+    },
+    "seedFit": {
+      "mae": 0.687,
+      "rmse": 0.83,
+      "r2": 0.997
+    }
+  },
+  "blendWeight": 0.51,
+  "bias": 88.41666666666667,
+  "weights": [
+    0.607934624975739,
+    -0.07587149721090651,
+    1.3068226441571422,
+    1.456344140070845,
+    0.48053738871971696,
+    0.005956535769247618,
+    -2.1541632023919544,
+    -0.4909149918580638,
+    5.796941594372496,
+    1.822534724881001,
+    0.2557771132673245,
+    -0.6188520059112365,
+    0,
+    0,
+    0.6861139267986623,
+    0.5937227511590116,
+    0.1151863331229392,
+    0.0026565383934792483,
+    1.5119709666875838,
+    1.673860404941463,
+    0.04254409887665574,
+    0.7771402837490821,
+    1.2107477561100068,
+    3.5521487125164795,
+    1.4587870128838156,
+    1.4782894617649966,
+    -0.1888984666104469,
+    1.264284005691037,
+    2.041601415672921,
+    -0.16283515190977177,
+    -1.1845114069639813,
+    -1.7696403958797593
+  ]
+}
