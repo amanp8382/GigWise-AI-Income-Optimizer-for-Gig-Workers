@@ -4,6 +4,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const cron = require('node-cron');
 const path = require('path');
+const { spawn } = require('child_process');
 
 dotenv.config({ path: path.join(__dirname, '.env') });
 
@@ -23,6 +24,10 @@ const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || '0.0.0.0';
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/gigwise';
 const ML_API_URL = String(process.env.ML_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+const FASTAPI_WORKDIR = path.join(__dirname, 'ml_python');
+const FASTAPI_HOST = '127.0.0.1';
+const FASTAPI_PORT = '8000';
+const FASTAPI_PYTHON_BIN = process.env.FASTAPI_PYTHON_BIN || 'python';
 
 // Mongo connection
 mongoose
@@ -105,15 +110,63 @@ async function assertFastApiHealthy() {
   }
 }
 
-async function startServer() {
-  let mlAvailable = true;
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
+function launchLocalMlService() {
+  const child = spawn(
+    FASTAPI_PYTHON_BIN,
+    ['-m', 'uvicorn', 'main:app', '--host', FASTAPI_HOST, '--port', FASTAPI_PORT],
+    {
+      cwd: FASTAPI_WORKDIR,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true
+    }
+  );
+
+  child.unref();
+}
+
+async function ensureMlServiceAvailable() {
   try {
     await assertFastApiHealthy();
-  } catch (error) {
-    console.warn('ML service unavailable, fallback will be used');
-    mlAvailable = false;
+    return true;
+  } catch (_error) {
+    console.warn('ML service unavailable, attempting local startup');
   }
+
+  try {
+    launchLocalMlService();
+  } catch (error) {
+    console.warn(`ML service startup failed, fallback will be used: ${error.message}`);
+    return false;
+  }
+
+  let lastHealthError = null;
+
+  for (let attempt = 1; attempt <= 20; attempt += 1) {
+    await wait(1000);
+
+    try {
+      await assertFastApiHealthy();
+      console.log('ML service is available');
+      return true;
+    } catch (error) {
+      lastHealthError = error;
+      // Give the local FastAPI process time to boot before falling back.
+    }
+  }
+
+  console.warn(
+    `ML service unavailable, fallback will be used${lastHealthError ? `: ${lastHealthError.message}` : ''}`
+  );
+  return false;
+}
+
+async function startServer() {
+  const mlAvailable = await ensureMlServiceAvailable();
 
   const server = app.listen(PORT, HOST, () =>
     console.log(
