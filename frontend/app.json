@@ -2,9 +2,11 @@
   "expo": {
     "name": "GigWise",
     "slug": "gigwise",
+    "scheme": "gigwise",
     "version": "1.0.0",
     "orientation": "portrait",
     "plugins": [
+      "expo-dev-client",
       [
         "expo-location",
         {
@@ -27,8 +29,15 @@
     "android": {
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
-      ]
+        "ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.anonymous.gigwise"
     }
   }
 }

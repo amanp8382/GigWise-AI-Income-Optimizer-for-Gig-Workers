@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, ImageBackground, SafeAreaView, StyleSheet, View } from 'react-native';
+import { Image, Platform, SafeAreaView, StyleSheet, View } from 'react-native';
 import AppButton from '../components/ui/AppButton';
 import AppCard from '../components/ui/AppCard';
 import { colors } from '../constants/colors';
@@ -10,7 +10,8 @@ const welcomePoster = require('../../assets/welcome-gigwise.png');
 export default function WelcomeScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ImageBackground source={welcomePoster} style={styles.background} resizeMode="cover">
+      <View style={styles.background}>
+        <Image source={welcomePoster} style={styles.poster} resizeMode="cover" />
         <View style={styles.overlay}>
           <View style={styles.glowTop} />
           <View style={styles.glowBottom} />
@@ -20,7 +21,7 @@ export default function WelcomeScreen({ navigation }) {
             </View>
           </AppCard>
         </View>
-      </ImageBackground>
+      </View>
     </SafeAreaView>
   );
 }
@@ -32,6 +33,12 @@ const styles = StyleSheet.create({
   },
   background: {
     flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.bg
+  },
+  poster: {
+    ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%'
   },

@@ -18,10 +18,11 @@ const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || '';
 
 const hasRazorpayConfig = () => Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
 const normalizeNumber = (value) => Number(value) || 0;
+const normalizeCity = (value) => String(value || '').trim().toLowerCase();
 const createReceipt = (userId) => `gw_${String(userId).slice(-6)}_${Date.now()}`;
 
 const buildQuoteInput = (payload, fallbackCity) => ({
-  city: payload.city || fallbackCity,
+  city: String(payload.city || fallbackCity || '').trim(),
   avgHours: normalizeNumber(payload.avgHours),
   deliveries: normalizeNumber(payload.deliveries),
   workerRating: normalizeNumber(payload.workerRating)
@@ -120,7 +121,7 @@ router.post('/order', async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const quoteInput = buildQuoteInput(req.body, user.city);
-    if (quoteInput.city && user.city.toLowerCase() !== quoteInput.city.toLowerCase()) {
+    if (quoteInput.city && normalizeCity(user.city) !== normalizeCity(quoteInput.city)) {
       return res.status(400).json({ error: 'Location mismatch: renewal rejected' });
     }
 

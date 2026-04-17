@@ -3,6 +3,7 @@ const axios = require('axios');
 const { fetchAQI, fetchWeather } = require('./weatherService');
 const { cityProfiles, defaultCityProfile } = require('../ml/modelConfig');
 const { clamp, safeNumber, buildFeatureState } = require('../ml/featureEngineering');
+const { predictPremiumWithModel } = require('../ml/premiumModel');
 const {
   BASE_PREMIUM,
   calculateRisk,
@@ -43,12 +44,12 @@ function explainPricing({ premiumDetails, coverageDetails, mlPredictionUsed }) {
 
   if (!reasons.length) {
     return mlPredictionUsed
-      ? `Premium is Rs${premiumDetails.premium} with coverage Rs${coverageDetails.coverage} using the connected ML service and balanced risk conditions`
+      ? `Premium is Rs${premiumDetails.premium} with coverage Rs${coverageDetails.coverage} using the connected ML model and balanced risk conditions`
       : `Premium is Rs${premiumDetails.premium} with coverage Rs${coverageDetails.coverage} under balanced risk conditions`;
   }
 
   const intro = `${reasons.join(', ')} are driving premium and AI-sized coverage adjustments this week`;
-  return mlPredictionUsed ? `${intro}. FastAPI risk and premium predictions are active.` : intro;
+  return mlPredictionUsed ? `${intro}. Local premium model predictions are active.` : intro;
 }
 
 function deriveEnvironmentalInputs(input) {
@@ -559,28 +560,143 @@ async function calculatePremiumFromHeuristics(userData = {}) {
   };
 }
 
+function buildLocalModelBackedResult(input, environmental) {
+  const driverData = {
+    city: input.city,
+    rainfallNorm: environmental.rainfallNorm,
+    heatIndexNorm: environmental.heatIndexNorm,
+    extremeWeatherFlag: environmental.extremeWeatherFlag,
+    aqiLevel: input.aqiLevel,
+    congestionIndex: environmental.congestionIndex,
+    crimeRate: environmental.crimeRate,
+    accidentRate: environmental.accidentRate,
+    disruptionRate: environmental.disruptionRate,
+    activeHours: input.activeHours,
+    deliveries: input.deliveries,
+    incidents: input.incidents,
+    forecastRisk: environmental.forecastRisk,
+    workerRating: input.workerRating,
+    consistencyScore: input.consistencyScore,
+    claimTrend: input.claimTrend,
+    weeklyIncome: input.weeklyIncome
+  };
+
+  const riskDetails = calculateRisk(driverData);
+  const heuristicPremium = calculateDynamicPremium(driverData);
+
+  const modelPrediction = predictPremiumWithModel({
+    city: input.city,
+    avgHours: input.activeHours,
+    deliveries: input.deliveries,
+    workerRating: input.workerRating,
+    rainFrequency: input.rainFrequency,
+    aqiLevel: input.aqiLevel,
+    temperature: input.temperature,
+    windSpeed: input.windSpeed,
+    weatherCode: input.weatherCode,
+    pm25: input.pm25,
+    pm10: input.pm10,
+    isDay: input.isDay
+  });
+
+  if (!modelPrediction || !Number.isFinite(modelPrediction.prediction)) {
+    return null;
+  }
+
+  const blendWeight = clamp(safeNumber(modelPrediction.blendWeight, 0.55), 0.15, 0.85);
+  const blendedPremiumValue =
+    safeNumber(modelPrediction.prediction, heuristicPremium.premium) * blendWeight +
+    heuristicPremium.premium * (1 - blendWeight);
+
+  const premium = Math.round(clamp(blendedPremiumValue, 15, 200));
+  const rawPremium = Number(blendedPremiumValue.toFixed(2));
+
+  const trustDetails = calculateTrustScore({
+    workerRating: input.workerRating,
+    consistencyScore: input.consistencyScore,
+    claimTrend: input.claimTrend
+  });
+  const trustDiscount = Number((trustDetails.trustScore * 5).toFixed(2));
+  const forecastRiskAmount = Number((clamp(heuristicPremium.forecastRisk, 0, 1) * 10).toFixed(2));
+  const riskFactorAmount = Number(
+    (Math.max(0, rawPremium - BASE_PREMIUM - forecastRiskAmount + trustDiscount)).toFixed(2)
+  );
+
+  const coverageDetails = calculateDynamicCoverage({
+    ...driverData,
+    premium,
+    rawPremium,
+    totalRisk: heuristicPremium.totalRisk,
+    forecastRisk: heuristicPremium.forecastRisk,
+    trustScore: trustDetails.trustScore,
+    normalized: heuristicPremium.normalized
+  });
+
+  return {
+    input,
+    normalized: heuristicPremium.normalized,
+    weighted: heuristicPremium.weighted,
+    ml: {
+      source: 'local_premium_model',
+      modelPath: require('../ml/premiumModel').MODEL_PATH,
+      metrics: modelPrediction.metrics,
+      trainedAt: modelPrediction.trainedAt,
+      datasetSize: modelPrediction.datasetSize,
+      blendWeight
+    },
+    heuristicPremium: heuristicPremium.premium,
+    basePremium: BASE_PREMIUM,
+    riskFactorAmount,
+    forecastRiskAmount,
+    trustDiscount,
+    riskScore: Number(heuristicPremium.totalRisk.toFixed(2)),
+    forecastRisk: Number(heuristicPremium.forecastRisk.toFixed(2)),
+    trustScore: Number(trustDetails.trustScore.toFixed(2)),
+    rawPremium,
+    premium,
+    rawCoverage: coverageDetails.rawCoverage,
+    coverage: coverageDetails.coverage,
+    coverageBounds: {
+      floor: coverageDetails.dynamicFloor,
+      ceiling: coverageDetails.dynamicCeiling
+    },
+    riskLevel: riskLabelForScore(riskDetails.totalRisk),
+    explanation: explainPricing({
+      premiumDetails: {
+        ...heuristicPremium,
+        premium,
+        rawPremium
+      },
+      coverageDetails,
+      mlPredictionUsed: true
+    }),
+    pricingFormula:
+      'Weekly Premium = (Local ML premium prediction * blend) + (Node heuristic premium * (1 - blend))',
+    coverageFormula:
+      'Dynamic income protection sized from income, premium commitment, trust score, forecast risk, and total risk',
+    environmentalInputsLocked: true
+  };
+}
+
 async function calculatePremium(userData = {}) {
   const input = await buildRiskInput(userData);
   const environmental = deriveEnvironmentalInputs(input);
-  const mlPayload = buildFastApiPayload(input, environmental);
+  const fastApiPayload = buildFastApiPayload(input, environmental);
 
   try {
-    const mlPrediction = await fetchMlPredictions(mlPayload);
+    const mlPrediction = await fetchMlPredictions(fastApiPayload);
     return buildMlBackedResult(input, environmental, mlPrediction);
   } catch (error) {
-    console.error(
-      `FastAPI prediction failed at ${getMlApiUrl()}. Falling back to Node heuristics.`,
-      error
-    );
-    // The fallback keeps premium estimation available when the ML service is down,
-    // while making the source explicit so operators can detect degraded mode.
-    const fallbackResult = await calculatePremiumFromHeuristics(userData);
-    fallbackResult.ml = {
-      ...(fallbackResult.ml || {}),
-      source: 'heuristic_fallback'
-    };
-    return fallbackResult;
+    console.error('FastAPI ML prediction failed', error);
   }
+
+  // Keep pricing available when FastAPI is down so quotes can still be generated from heuristic logic.
+  const fallbackResult = await calculatePremiumFromHeuristics(userData);
+  fallbackResult.ml = {
+    ...(fallbackResult.ml || {}),
+    source: 'heuristic_fallback'
+  };
+  return fallbackResult;
 }
 
 module.exports = {

@@ -127,7 +127,7 @@ async function startServer() {
 }
 
 startServer().catch((error) => {
-  console.error(`FastAPI startup guard failed. Node backend will not start: ${error.message}`);
+  console.error(`Node backend startup failed: ${error.message}`);
   process.exit(1);
 });
 
