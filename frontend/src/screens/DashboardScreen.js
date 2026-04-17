@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -25,9 +26,13 @@ import {
 
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(0)}`;
 const getKycTone = (status) => {
-  if (status === 'VERIFIED') return { label: 'Verified', color: colors.success, bg: '#DCFCE7' };
-  if (status === 'PENDING') return { label: 'Pending', color: '#B45309', bg: '#FEF3C7' };
-  return { label: 'Setup needed', color: colors.danger, bg: '#FEE2E2' };
+  if (status === 'VERIFIED') {
+    return { label: 'Verified', color: colors.success, bg: 'rgba(34, 197, 94, 0.14)' };
+  }
+  if (status === 'PENDING') {
+    return { label: 'Pending', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.16)' };
+  }
+  return { label: 'Setup needed', color: colors.danger, bg: 'rgba(244, 63, 94, 0.16)' };
 };
 
 export default function DashboardScreen({ navigation, user }) {
@@ -214,6 +219,10 @@ export default function DashboardScreen({ navigation, user }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View pointerEvents="none" style={styles.bgFx}>
+        <View style={styles.bgGlowA} />
+        <View style={styles.bgGlowB} />
+      </View>
       <ScrollView
         contentContainerStyle={styles.container}
         refreshControl={
@@ -271,6 +280,11 @@ export default function DashboardScreen({ navigation, user }) {
               </Text>
             </View>
           ))}
+          <AppButton
+            title="Recalculate Weekly Premium"
+            variant="secondary"
+            onPress={() => navigation.navigate('Policy')}
+          />
         </AppCard>
 
         <AppCard style={styles.monthlyCard}>
@@ -461,6 +475,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center'
   },
+  bgFx: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web'
+      ? {
+          backgroundImage:
+            'radial-gradient(700px 520px at 16% 8%, rgba(168, 85, 247, 0.16) 0%, rgba(168, 85, 247, 0) 60%), radial-gradient(760px 560px at 92% 26%, rgba(168, 85, 247, 0.12) 0%, rgba(168, 85, 247, 0) 64%)'
+        }
+      : null)
+  },
+  bgGlowA: {
+    position: 'absolute',
+    width: 720,
+    height: 720,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+    top: -480,
+    left: -360,
+    opacity: 0.85,
+    ...(Platform.OS === 'web' ? { filter: 'blur(34px)' } : null)
+  },
+  bgGlowB: {
+    position: 'absolute',
+    width: 780,
+    height: 780,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(168, 85, 247, 0.10)',
+    bottom: -560,
+    right: -420,
+    opacity: 0.85,
+    ...(Platform.OS === 'web' ? { filter: 'blur(38px)' } : null)
+  },
   container: {
     padding: spacing.lg,
     paddingBottom: spacing.xxl
@@ -509,7 +555,7 @@ const styles = StyleSheet.create({
   },
   walletStatBox: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
@@ -535,7 +581,7 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   },
   bankPanel: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
@@ -554,10 +600,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm
   },
   monthlyEntry: {
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing.md,
-    marginTop: spacing.sm
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border
   },
   monthlyEntryText: {
     color: colors.text,

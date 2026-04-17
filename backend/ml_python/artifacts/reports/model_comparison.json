@@ -1,0 +1,48 @@
+{
+  "risk_model_candidates": {
+    "random_forest": {
+      "accuracy": 0.844,
+      "confusion_matrix": [
+        [
+          381,
+          22
+        ],
+        [
+          56,
+          41
+        ]
+      ],
+      "positive_probability_mean": 0.24580115244163198
+    },
+    "gradient_boosting": {
+      "accuracy": 0.83,
+      "confusion_matrix": [
+        [
+          369,
+          34
+        ],
+        [
+          51,
+          46
+        ]
+      ],
+      "positive_probability_mean": 0.17233362728510554
+    }
+  },
+  "premium_model_candidates": {
+    "random_forest": {
+      "r2": 0.8055848150085849,
+      "mae": 5.398597181172486,
+      "rmse": 6.801783733852257
+    },
+    "gradient_boosting": {
+      "r2": 0.8057076981887272,
+      "mae": 5.397129119303874,
+      "rmse": 6.799633806798697
+    }
+  },
+  "selected_models": {
+    "risk_model": "random_forest",
+    "premium_model": "gradient_boosting"
+  }
+}

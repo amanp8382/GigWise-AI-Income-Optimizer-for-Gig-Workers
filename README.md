@@ -318,3 +318,20 @@ The system integrates with:
 * Federated learning for privacy-preserving AI
 
 ---
+
+##  Local Services
+
+The mobile app talks to the Node backend on port `4000`. The Node backend now proxies premium and risk prediction through the FastAPI ML service by default.
+
+Set these backend environment variables when running locally:
+
+* `ML_API_URL=http://127.0.0.1:8000`
+* `ML_API_TIMEOUT_MS=8000`
+
+Start the FastAPI service from `backend/ml_python` with your preferred runner, for example:
+
+```bash
+uvicorn api:app --host 0.0.0.0 --port 8000
+```
+
+If the FastAPI service is unavailable, the Node backend falls back to its built-in heuristic pricing logic so the rest of the app can still run.

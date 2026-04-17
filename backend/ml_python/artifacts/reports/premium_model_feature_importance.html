@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>premium_model feature importance</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 32px;
+      background: #f7f8fb;
+      color: #1f2937;
+    }
+    .card {
+      max-width: 920px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+    h1 {
+      margin-top: 0;
+    }
+    .subtitle {
+      color: #475569;
+      margin-bottom: 24px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 210px 1fr 90px;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .label {
+      font-weight: 600;
+    }
+    .bar-wrap {
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+      height: 16px;
+    }
+    .bar {
+      height: 100%;
+      background: linear-gradient(90deg, #0f766e, #14b8a6);
+      border-radius: 999px;
+    }
+    .value {
+      text-align: right;
+      color: #0f172a;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Premium Model</h1>
+    <p class="subtitle">Permutation importance for the regression model on held-out GigWise test data.</p>
+    
+            <div class="row">
+              <div class="label">past_claims</div>
+              <div class="bar-wrap"><div class="bar" style="width:100%"></div></div>
+              <div class="value">0.2722</div>
+            </div>
+            
+            <div class="row">
+              <div class="label">trust_score</div>
+              <div class="bar-wrap"><div class="bar" style="width:78%"></div></div>
+              <div class="value">0.2149</div>
+            </div>
+            
+            <div class="row">
+              <div class="label">zone_risk</div>
+              <div class="bar-wrap"><div class="bar" style="width:77%"></div></div>
+              <div class="value">0.2097</div>
+            </div>
+            
+            <div class="row">
+              <div class="label">delivery_delay</div>
+              <div class="bar-wrap"><div class="bar" style="width:17%"></div></div>
+              <div class="value">0.0478</div>
+            </div>
+            
+            <div class="row">
+              <div class="label">order_drop_rate</div>
+              <div class="bar-wrap"><div class="bar" style="width:16%"></div></div>
+              <div class="value">0.0442</div>
+            </div>
+            
+            <div class="row">
+              <div class="label">experience</div>
+              <div class="bar-wrap"><div class="bar" style="width:6%"></div></div>
+              <div class="value">0.0177</div>
+            </div>
+            
+            <div class="row">
+              <div class="label">aqi</div>
+              <div class="bar-wrap"><div class="bar" style="width:4%"></div></div>
+              <div class="value">0.0129</div>
+            </div>
+            
+            <div class="row">
+              <div class="label">rainfall</div>
+              <div class="bar-wrap"><div class="bar" style="width:4%"></div></div>
+              <div class="value">0.0127</div>
+            </div>
+            
+            <div class="row">
+              <div class="label">orders_completed</div>
+              <div class="bar-wrap"><div class="bar" style="width:3%"></div></div>
+              <div class="value">0.0090</div>
+            </div>
+            
+            <div class="row">
+              <div class="label">traffic_level</div>
+              <div class="bar-wrap"><div class="bar" style="width:2%"></div></div>
+              <div class="value">0.0042</div>
+            </div>
+            
+            <div class="row">
+              <div class="label">avg_delivery_time</div>
+              <div class="bar-wrap"><div class="bar" style="width:2%"></div></div>
+              <div class="value">0.0042</div>
+            </div>
+            
+            <div class="row">
+              <div class="label">active_hours</div>
+              <div class="bar-wrap"><div class="bar" style="width:2%"></div></div>
+              <div class="value">0.0012</div>
+            </div>
+            
+  </div>
+</body>
+</html>

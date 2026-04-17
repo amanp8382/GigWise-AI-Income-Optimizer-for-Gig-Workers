@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -325,6 +326,10 @@ export default function HomeScreen({ navigation, user, setUser }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View pointerEvents="none" style={styles.bgFx}>
+        <View style={styles.bgGlowA} />
+        <View style={styles.bgGlowB} />
+      </View>
       <ScrollView
         contentContainerStyle={styles.container}
         refreshControl={
@@ -585,6 +590,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center'
   },
+  bgFx: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web'
+      ? {
+          backgroundImage:
+            'radial-gradient(720px 520px at 18% 12%, rgba(168, 85, 247, 0.18) 0%, rgba(168, 85, 247, 0) 60%), radial-gradient(740px 560px at 88% 28%, rgba(168, 85, 247, 0.14) 0%, rgba(168, 85, 247, 0) 62%)'
+        }
+      : null)
+  },
+  bgGlowA: {
+    position: 'absolute',
+    width: 720,
+    height: 720,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+    top: -460,
+    left: -360,
+    opacity: 0.85,
+    ...(Platform.OS === 'web' ? { filter: 'blur(34px)' } : null)
+  },
+  bgGlowB: {
+    position: 'absolute',
+    width: 760,
+    height: 760,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(168, 85, 247, 0.10)',
+    bottom: -520,
+    right: -420,
+    opacity: 0.85,
+    ...(Platform.OS === 'web' ? { filter: 'blur(36px)' } : null)
+  },
   container: {
     padding: spacing.lg,
     paddingBottom: spacing.xxl
@@ -635,9 +672,11 @@ const styles = StyleSheet.create({
   },
   walletMiniCard: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surface,
     borderRadius: radius.md,
-    padding: spacing.md
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border
   },
   walletMiniLabel: {
     color: colors.muted,
@@ -722,10 +761,12 @@ const styles = StyleSheet.create({
     lineHeight: 19
   },
   monthlyRow: {
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 12,
-    marginTop: 10
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: colors.border
   },
   monthlyRowText: {
     color: colors.text,
@@ -777,7 +818,7 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.42)',
+    backgroundColor: 'rgba(10, 10, 10, 0.78)',
     justifyContent: 'center',
     padding: 24
   },

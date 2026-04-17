@@ -114,6 +114,40 @@ export const createPolicy = async (payload) => {
   }
 };
 
+export const createBillingOrder = async (payload) => {
+  try {
+    const normalizedPayload = {
+      userId: payload.userId,
+      plan: payload.plan,
+      city: payload.city,
+      avgHours: Number(payload.avgHours) || 0,
+      deliveries: Number(payload.deliveries) || 0,
+      workerRating: Number(payload.workerRating) || 0
+    };
+    const { data } = await requestWithFallback({
+      method: 'post',
+      url: '/billing/order',
+      data: normalizedPayload
+    });
+    return data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error, 'Could not create payment order'));
+  }
+};
+
+export const verifyBillingPayment = async (payload) => {
+  try {
+    const { data } = await requestWithFallback({
+      method: 'post',
+      url: '/billing/verify',
+      data: payload
+    });
+    return data;
+  } catch (error) {
+    throw new Error(getErrorMessage(error, 'Could not verify payment'));
+  }
+};
+
 export const createClaim = async (userId, triggerType = 'MANUAL', eventCity) => {
   try {
     const { data } = await requestWithFallback({

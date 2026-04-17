@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
+  Pressable,
   View
 } from 'react-native';
 import AppButton from '../components/ui/AppButton';
@@ -14,7 +15,8 @@ import AppHeader from '../components/ui/AppHeader';
 import AppInput from '../components/ui/AppInput';
 import { colors } from '../constants/colors';
 import { radius, spacing } from '../constants/theme';
-import { createPolicy, fetchWeather, predictPremium } from '../services/api';
+import { createBillingOrder, fetchWeather, predictPremium, verifyBillingPayment } from '../services/api';
+import { openRazorpayCheckout } from '../services/razorpayCheckout';
 
 const cityOptions = ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'];
 
@@ -142,12 +144,43 @@ export default function PolicyScreen({ navigation, user }) {
     setMessage('');
 
     try {
-      const { pricing } = await createPolicy({
+      const billingOrder = await createBillingOrder({
         userId: user._id,
         ...parsedPayload,
         plan: prediction?.riskLevel || 'AI_DYNAMIC'
       });
-      setMessage(`Policy activated. Weekly premium Rs ${pricing.premium}. Coverage Rs ${pricing.coverage}.`);
+
+      const checkoutResult = await openRazorpayCheckout({
+        key: billingOrder.keyId,
+        amount: billingOrder.order.amount,
+        currency: billingOrder.order.currency,
+        name: 'GigWise',
+        description: 'Weekly insurance renewal',
+        order_id: billingOrder.order.id,
+        prefill: {
+          name: user?.name || '',
+          contact: ''
+        },
+        notes: {
+          city: parsedPayload.city,
+          plan: prediction?.riskLevel || 'AI_DYNAMIC'
+        },
+        theme: {
+          color: colors.primary,
+          backdrop_color: '#0A0A0A'
+        }
+      });
+
+      const verifiedPayment = await verifyBillingPayment({
+        userId: user._id,
+        orderId: billingOrder.order.id,
+        razorpayPaymentId: checkoutResult.razorpay_payment_id,
+        razorpaySignature: checkoutResult.razorpay_signature
+      });
+
+      setMessage(
+        `Policy activated. Weekly premium Rs ${verifiedPayment.pricing.premium}. Coverage Rs ${verifiedPayment.pricing.coverage}.`
+      );
       navigation.navigate('Dashboard');
     } catch (err) {
       setMessage(err.message);
@@ -158,6 +191,10 @@ export default function PolicyScreen({ navigation, user }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View pointerEvents="none" style={styles.bgFx}>
+        <View style={styles.bgGlowA} />
+        <View style={styles.bgGlowB} />
+      </View>
       <ScrollView contentContainerStyle={styles.container}>
         <AppHeader
           eyebrow="AI Pricing"
@@ -167,21 +204,34 @@ export default function PolicyScreen({ navigation, user }) {
 
         <View style={styles.cityRow}>
           {cityOptions.map((city) => (
-            <TouchableOpacity
+            <Pressable
               key={city}
-              style={[styles.cityChip, form.city === city && styles.cityChipActive]}
+              style={({ pressed, hovered }) => [
+                styles.cityChip,
+                form.city === city && styles.cityChipActive,
+                Platform.OS === 'web' && hovered && !(form.city === city) && styles.cityChipHovered,
+                pressed && styles.chipPressed
+              ]}
               onPress={() => updateField('city', city)}
             >
               <Text style={[styles.cityChipText, form.city === city && styles.cityChipTextActive]}>{city}</Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
 
         <View style={styles.samplesRow}>
           {sampleProfiles.map((sample) => (
-            <TouchableOpacity key={sample.key} style={styles.sampleChip} onPress={() => applySample(sample)}>
+            <Pressable
+              key={sample.key}
+              onPress={() => applySample(sample)}
+              style={({ pressed, hovered }) => [
+                styles.sampleChip,
+                Platform.OS === 'web' && hovered && styles.sampleChipHovered,
+                pressed && styles.chipPressed
+              ]}
+            >
               <Text style={styles.sampleChipText}>{sample.label}</Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
 
@@ -278,7 +328,7 @@ export default function PolicyScreen({ navigation, user }) {
         {message ? <Text style={styles.message}>{message}</Text> : null}
 
         <AppButton
-          title="Activate Personalized Plan"
+          title="Pay and Activate Personalized Plan"
           onPress={handleActivate}
           loading={activating}
           disabled={!prediction}
@@ -292,6 +342,38 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.bg
+  },
+  bgFx: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web'
+      ? {
+          backgroundImage:
+            'radial-gradient(740px 540px at 18% 10%, rgba(168, 85, 247, 0.18) 0%, rgba(168, 85, 247, 0) 60%), radial-gradient(820px 620px at 92% 40%, rgba(168, 85, 247, 0.14) 0%, rgba(168, 85, 247, 0) 62%)'
+        }
+      : null)
+  },
+  bgGlowA: {
+    position: 'absolute',
+    width: 740,
+    height: 740,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+    top: -520,
+    left: -380,
+    opacity: 0.85,
+    ...(Platform.OS === 'web' ? { filter: 'blur(34px)' } : null)
+  },
+  bgGlowB: {
+    position: 'absolute',
+    width: 780,
+    height: 780,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(168, 85, 247, 0.10)',
+    bottom: -560,
+    right: -420,
+    opacity: 0.85,
+    ...(Platform.OS === 'web' ? { filter: 'blur(38px)' } : null)
   },
   container: {
     padding: spacing.lg,
@@ -310,11 +392,26 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: radius.pill,
     marginRight: spacing.sm,
-    marginBottom: spacing.sm
+    marginBottom: spacing.sm,
+    ...(Platform.OS === 'web'
+      ? {
+          transitionDuration: '220ms',
+          transitionTimingFunction: 'ease',
+          transitionProperty: 'transform, box-shadow, background-color, border-color'
+        }
+      : null)
   },
   cityChipActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary
+  },
+  cityChipHovered: {
+    borderColor: 'rgba(168, 85, 247, 0.35)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    transform: [{ translateY: -1 }],
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 12px 34px rgba(0,0,0,0.55), 0 0 22px rgba(168,85,247,0.14)' }
+      : null)
   },
   cityChipText: {
     color: colors.text,
@@ -337,7 +434,25 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border
+    borderColor: colors.border,
+    ...(Platform.OS === 'web'
+      ? {
+          transitionDuration: '220ms',
+          transitionTimingFunction: 'ease',
+          transitionProperty: 'transform, box-shadow, background-color, border-color'
+        }
+      : null)
+  },
+  sampleChipHovered: {
+    borderColor: 'rgba(168, 85, 247, 0.30)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    transform: [{ translateY: -1 }],
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 12px 34px rgba(0,0,0,0.55), 0 0 22px rgba(168,85,247,0.12)' }
+      : null)
+  },
+  chipPressed: {
+    transform: [{ scale: 0.98 }]
   },
   sampleChipText: {
     color: colors.text,

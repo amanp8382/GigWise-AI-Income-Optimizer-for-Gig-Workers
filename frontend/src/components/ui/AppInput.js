@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors } from '../../constants/colors';
 import { radius, spacing, typography } from '../../constants/theme';
 
@@ -43,11 +43,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 15,
     borderWidth: 1.5,
-    borderColor: colors.border
+    borderColor: colors.border,
+    ...(Platform.OS === 'web'
+      ? {
+          outlineStyle: 'none',
+          transitionDuration: '220ms',
+          transitionTimingFunction: 'ease',
+          transitionProperty: 'box-shadow, border-color, background-color, transform'
+        }
+      : null)
   },
   inputFocused: {
     borderColor: colors.primary,
-    backgroundColor: colors.white
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    ...(Platform.OS === 'web'
+      ? { boxShadow: `0 0 0 3px rgba(168, 85, 247, 0.35), 0 10px 32px rgba(0, 0, 0, 0.55)` }
+      : null)
   },
   helper: {
     color: colors.muted,

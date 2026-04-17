@@ -6,7 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
+  Pressable,
   View
 } from 'react-native';
 import AppButton from '../components/ui/AppButton';
@@ -55,6 +55,10 @@ export default function LoginScreen({ navigation, setUser }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View pointerEvents="none" style={styles.bgFx}>
+        <View style={styles.bgGlowA} />
+        <View style={styles.bgGlowB} />
+      </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.container}
@@ -112,9 +116,17 @@ export default function LoginScreen({ navigation, setUser }) {
 
             <View style={styles.chipsRow}>
               {citySuggestions.map((item) => (
-                <TouchableOpacity key={item} style={styles.chip} onPress={() => setCity(item)}>
+                <Pressable
+                  key={item}
+                  onPress={() => setCity(item)}
+                  style={({ pressed, hovered }) => [
+                    styles.chip,
+                    Platform.OS === 'web' && hovered && styles.chipHovered,
+                    pressed && styles.chipPressed
+                  ]}
+                >
                   <Text style={styles.chipText}>{item}</Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
 
@@ -133,6 +145,38 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg
   },
+  bgFx: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web'
+      ? {
+          backgroundImage:
+            'radial-gradient(650px 520px at 20% 12%, rgba(168, 85, 247, 0.22) 0%, rgba(168, 85, 247, 0) 60%), radial-gradient(760px 620px at 90% 35%, rgba(168, 85, 247, 0.18) 0%, rgba(168, 85, 247, 0) 60%)'
+        }
+      : null)
+  },
+  bgGlowA: {
+    position: 'absolute',
+    width: 540,
+    height: 540,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+    top: -280,
+    left: -220,
+    opacity: 0.9,
+    ...(Platform.OS === 'web' ? { filter: 'blur(26px)' } : null)
+  },
+  bgGlowB: {
+    position: 'absolute',
+    width: 660,
+    height: 660,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(168, 85, 247, 0.10)',
+    bottom: -360,
+    right: -300,
+    opacity: 0.9,
+    ...(Platform.OS === 'web' ? { filter: 'blur(30px)' } : null)
+  },
   container: {
     flex: 1,
     width: '100%'
@@ -146,18 +190,24 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     padding: spacing.xl,
     borderRadius: radius.xl,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.card,
     overflow: 'hidden',
-    ...shadows.card
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.card,
+    ...(Platform.OS === 'web'
+      ? { backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }
+      : null)
   },
   heroGlow: {
     position: 'absolute',
-    width: 220,
-    height: 220,
+    width: 320,
+    height: 320,
     borderRadius: radius.pill,
     backgroundColor: colors.primarySoft,
     top: -50,
-    right: -40
+    right: -70,
+    ...(Platform.OS === 'web' ? { filter: 'blur(18px)' } : null)
   },
   heroStats: {
     flexDirection: 'row',
@@ -208,7 +258,25 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border
+    borderColor: colors.border,
+    ...(Platform.OS === 'web'
+      ? {
+          transitionDuration: '200ms',
+          transitionTimingFunction: 'ease',
+          transitionProperty: 'transform, box-shadow, background-color, border-color'
+        }
+      : null)
+  },
+  chipHovered: {
+    borderColor: 'rgba(168, 85, 247, 0.35)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    transform: [{ translateY: -1 }],
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 12px 34px rgba(0,0,0,0.55), 0 0 22px rgba(168,85,247,0.14)' }
+      : null)
+  },
+  chipPressed: {
+    transform: [{ scale: 0.98 }]
   },
   chipText: {
     color: colors.text,

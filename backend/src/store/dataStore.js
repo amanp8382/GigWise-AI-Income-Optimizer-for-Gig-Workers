@@ -7,13 +7,15 @@ const Claim = require('../models/Claim');
 const memory = {
   users: [],
   policies: [],
-  claims: []
+  claims: [],
+  payments: []
 };
 
 const isDbReady = () => mongoose.connection.readyState === 1;
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const nowIso = () => new Date().toISOString();
+const isPolicyExpired = (policy) => new Date(policy?.endDate || 0) <= new Date();
 
 const makeId = () => randomUUID();
 const defaultKyc = () => ({
@@ -95,6 +97,25 @@ async function deactivateActivePolicies(userId) {
   );
 }
 
+async function deactivateExpiredPolicies(userId = null) {
+  const now = new Date();
+
+  if (isDbReady()) {
+    const filter = { active: true, endDate: { $lte: now } };
+    if (userId) filter.userId = userId;
+    await Policy.updateMany(filter, { active: false });
+    return;
+  }
+
+  memory.policies = memory.policies.map((policy) => {
+    if (!policy.active) return policy;
+    if (userId && policy.userId !== String(userId)) return policy;
+    if (!isPolicyExpired(policy)) return policy;
+
+    return { ...policy, active: false, updatedAt: nowIso() };
+  });
+}
+
 async function createPolicy(data) {
   if (isDbReady()) return Policy.create(data);
 
@@ -112,18 +133,30 @@ async function createPolicy(data) {
 }
 
 async function findActivePolicyByUserId(userId) {
-  if (isDbReady()) return Policy.findOne({ userId, active: true }).sort({ createdAt: -1 });
+  await deactivateExpiredPolicies(userId);
+
+  if (isDbReady()) {
+    return Policy.findOne({ userId, active: true, endDate: { $gt: new Date() } }).sort({
+      createdAt: -1
+    });
+  }
 
   return sortByCreatedDesc(
-    memory.policies.filter((policy) => policy.userId === String(userId) && policy.active)
+    memory.policies.filter(
+      (policy) => policy.userId === String(userId) && policy.active && !isPolicyExpired(policy)
+    )
   )[0] || null;
 }
 
 async function listActivePoliciesWithUsers() {
-  if (isDbReady()) return Policy.find({ active: true }).populate('userId');
+  await deactivateExpiredPolicies();
+
+  if (isDbReady()) {
+    return Policy.find({ active: true, endDate: { $gt: new Date() } }).populate('userId');
+  }
 
   return memory.policies
-    .filter((policy) => policy.active)
+    .filter((policy) => policy.active && !isPolicyExpired(policy))
     .map((policy) => ({
       ...clone(policy),
       userId: memory.users.find((user) => user._id === policy.userId) || null
@@ -198,6 +231,60 @@ async function listPoliciesByUserId(userId, limit = 24) {
   ).slice(0, limit);
 }
 
+async function createPaymentRecord(data) {
+  if (isDbReady()) {
+    const Payment = require('../models/Payment');
+    return Payment.create(data);
+  }
+
+  const payment = {
+    _id: makeId(),
+    userId: String(data.userId),
+    ...clone(data),
+    createdAt: nowIso(),
+    updatedAt: nowIso()
+  };
+
+  memory.payments.push(payment);
+  return clone(payment);
+}
+
+async function findPaymentByOrderId(orderId) {
+  if (isDbReady()) {
+    const Payment = require('../models/Payment');
+    return Payment.findOne({ orderId });
+  }
+
+  return memory.payments.find((payment) => payment.orderId === String(orderId)) || null;
+}
+
+async function listPaymentsByUserId(userId, limit = 20) {
+  if (isDbReady()) {
+    const Payment = require('../models/Payment');
+    return Payment.find({ userId }).sort({ createdAt: -1 }).limit(limit);
+  }
+
+  return sortByCreatedDesc(
+    memory.payments.filter((payment) => payment.userId === String(userId))
+  ).slice(0, limit);
+}
+
+async function savePayment(payment) {
+  if (isDbReady()) return payment.save();
+
+  const index = memory.payments.findIndex((item) => item._id === String(payment._id));
+  if (index >= 0) {
+    memory.payments[index] = {
+      ...memory.payments[index],
+      ...clone(payment),
+      updatedAt: nowIso()
+    };
+    return clone(memory.payments[index]);
+  }
+
+  return null;
+}
+
 module.exports = {
   isDbReady,
   findUserByNameCity,
@@ -205,6 +292,7 @@ module.exports = {
   findUserById,
   saveUser,
   deactivateActivePolicies,
+  deactivateExpiredPolicies,
   createPolicy,
   findActivePolicyByUserId,
   listActivePoliciesWithUsers,
@@ -213,5 +301,9 @@ module.exports = {
   countRecentClaims,
   findClaimByIdForUser,
   saveClaim,
-  listClaimsByUserId
+  listClaimsByUserId,
+  createPaymentRecord,
+  findPaymentByOrderId,
+  listPaymentsByUserId,
+  savePayment
 };

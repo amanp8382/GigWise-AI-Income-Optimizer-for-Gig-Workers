@@ -1,0 +1,21 @@
+{
+  "city": "mumbai",
+  "rainfall": 42,
+  "temperature": 34,
+  "aqi": 190,
+  "humidity": 88,
+  "heat_index": 44,
+  "orders_completed": 22,
+  "active_hours": 5.5,
+  "acceptance_rate": 61,
+  "idle_time": 120,
+  "avg_delivery_time": 38,
+  "zone_demand": 34,
+  "order_drop_rate": 17,
+  "delivery_delay": 35,
+  "traffic_level": 79,
+  "zone_risk": 83,
+  "experience": 1.5,
+  "past_claims": 3,
+  "trust_score": 46
+}

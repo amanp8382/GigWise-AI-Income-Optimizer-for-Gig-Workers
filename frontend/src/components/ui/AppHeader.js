@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   eyebrow: {
-    color: colors.primary,
+    color: colors.accent,
     marginBottom: spacing.sm,
     ...typography.eyebrow
   },
@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
     ...typography.title
   },
   subtitle: {
-    color: colors.muted,
+    color: colors.textSoft,
     marginTop: spacing.sm,
     ...typography.subtitle
   },

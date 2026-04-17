@@ -9,11 +9,20 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, _res, buffer) => {
+      if (req.originalUrl === '/billing/webhook') {
+        req.rawBody = Buffer.from(buffer);
+      }
+    }
+  })
+);
 
 const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || '0.0.0.0';
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/gigwise';
+const ML_API_URL = String(process.env.ML_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 
 // Mongo connection
 mongoose
@@ -46,6 +55,7 @@ app.use('/payout', require('./src/routes/payout')); // POST
 app.use('/dashboard', require('./src/routes/dashboard')); // GET
 app.use('/wallet', require('./src/routes/wallet')); // POST
 app.use('/predict-premium', require('./src/routes/predictPremium')); // POST
+app.use('/billing', require('./src/routes/billing')); // POST
 
 // Health
 app.get('/', (_req, res) => res.json({ status: 'ok', app: 'GigWise API' }));
@@ -80,19 +90,45 @@ const evaluateTriggers = (weather, aqi) => {
   return null;
 };
 
-const server = app.listen(PORT, HOST, () =>
-  console.log(`GigWise API running on http://${HOST}:${PORT}`)
-);
+async function assertFastApiHealthy() {
+  const response = await fetch(`${ML_API_URL}/health`, {
+    signal: AbortSignal.timeout(5000)
+  });
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(
-      `Port ${PORT} is already in use. Stop the other GigWise API instance or set a different PORT value before starting the backend again.`
-    );
-    return;
+  if (!response.ok) {
+    throw new Error(`FastAPI health check failed with status ${response.status}`);
   }
 
-  console.error('Server startup error', err.message);
+  const payload = await response.json();
+  if (payload?.status !== 'ok') {
+    throw new Error(`FastAPI health check returned unexpected payload: ${JSON.stringify(payload)}`);
+  }
+}
+
+async function startServer() {
+  await assertFastApiHealthy();
+
+  const server = app.listen(PORT, HOST, () =>
+    console.log(`GigWise API running on http://${HOST}:${PORT}`)
+  );
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(
+        `Port ${PORT} is already in use. Stop the other GigWise API instance or set a different PORT value before starting the backend again.`
+      );
+      return;
+    }
+
+    console.error('Server startup error', err.message);
+  });
+
+  return server;
+}
+
+startServer().catch((error) => {
+  console.error(`FastAPI startup guard failed. Node backend will not start: ${error.message}`);
+  process.exit(1);
 });
 
 module.exports = app;
