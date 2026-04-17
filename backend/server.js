@@ -106,10 +106,19 @@ async function assertFastApiHealthy() {
 }
 
 async function startServer() {
-  await assertFastApiHealthy();
+  let mlAvailable = true;
+
+  try {
+    await assertFastApiHealthy();
+  } catch (error) {
+    console.warn('ML service unavailable, fallback will be used');
+    mlAvailable = false;
+  }
 
   const server = app.listen(PORT, HOST, () =>
-    console.log(`GigWise API running on http://${HOST}:${PORT}`)
+    console.log(
+      `GigWise API running on http://${HOST}:${PORT}${mlAvailable ? '' : ' with heuristic ML fallback'}`
+    )
   );
 
   server.on('error', (err) => {
